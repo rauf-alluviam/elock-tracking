@@ -125,6 +125,56 @@ router.post('/unlock', async (req, res) => {
 });
 
 /**
+ * POST /api/elock/unlock-debug
+ * Debug version of unlock with detailed logging
+ */
+router.post('/unlock-debug', async (req, res) => {
+  try {
+    console.log('🔍 Debug Unlock Request Received');
+    console.log('📊 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('📊 Request headers:', JSON.stringify(req.headers, null, 2));
+    
+    const { assetId } = req.body;
+
+    if (!assetId) {
+      console.log('❌ No assetId provided');
+      return res.status(400).json({
+        success: false,
+        error: 'Asset ID is required'
+      });
+    }
+
+    console.log(`🔓 Starting unlock process for asset: ${assetId}`);
+    const result = await elockApiService.unlockDevice(assetId);
+    console.log('✅ Unlock process completed successfully');
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Unlock command sent successfully',
+      assetId,
+      timestamp: new Date().toISOString(),
+      debug: {
+        requestReceived: true,
+        assetIdProvided: !!assetId,
+        resultReceived: !!result
+      }
+    });
+  } catch (error) {
+    console.error('❌ Debug unlock error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      debug: {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        stack: error.stack
+      }
+    });
+  }
+});
+
+/**
  * GET /api/elock/status
  * Check API service status (prioritizes iCloud API)
  */
@@ -273,6 +323,30 @@ router.get('/icloud-status', async (req, res) => {
       details: error.message
     });
   }
+});
+
+/**
+ * GET /api/elock/frontend-test
+ * Simple endpoint to test frontend connectivity
+ */
+router.get('/frontend-test', (req, res) => {
+  console.log('🌐 Frontend test request received');
+  console.log('📊 Request headers:', JSON.stringify(req.headers, null, 2));
+  
+  res.json({
+    success: true,
+    message: 'Frontend connectivity test successful',
+    server: {
+      port: process.env.PORT || 5003,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    },
+    request: {
+      userAgent: req.headers['user-agent'],
+      origin: req.headers.origin,
+      referer: req.headers.referer
+    }
+  });
 });
 
 export default router;

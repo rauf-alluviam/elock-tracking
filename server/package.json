@@ -11,6 +11,7 @@
     "test-db": "node scripts/test-database.js",
     "test-api": "node scripts/test-api.js",
     "test-icloud": "node scripts/test-icloud-api.js",
+    "test-unlock": "node scripts/test-unlock.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["elock", "tracking", "express", "node"],

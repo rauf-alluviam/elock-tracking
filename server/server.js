@@ -68,6 +68,9 @@ app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Trigger restart after port change
+// Fixed unlock URL to use icloud.assetscontrols.com
+// Updated unlock functionality to use correct iCloud API
+// Updated unlock to follow React pattern: AssetID -> FGUID -> Unlock
+// Added timeouts to prevent ECONNRESET errors
 
 export default app;

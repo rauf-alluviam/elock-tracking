@@ -6,9 +6,7 @@ class ElockApiService {
     this.username = process.env.ELOCK_USERNAME;
     this.password = process.env.ELOCK_PASSWORD;
     this.token = null;
-    this.tokenExpiry = null;
-    
-    // iCloud Assets Controls API configuration
+    this.tokenExpiry = null;    // iCloud Assets Controls API configuration
     this.icloudBaseURL = 'http://icloud.assetscontrols.com:8092/OpenApi';
     this.fTokenID = null;
     this.fUserGUID = null;
@@ -116,9 +114,7 @@ class ElockApiService {
    */
   async getAssetLocation(assetId) {
     try {
-      await this.ensureValidICloudToken();
-
-      const response = await axios.post(`${this.icloudBaseURL}/LBS`, {
+      await this.ensureValidICloudToken();      const response = await axios.post(`${this.icloudBaseURL}/LBS`, {
         FTokenID: this.fTokenID,
         FAction: "QueryLBSMonitorListByFGUIDs",
         FGUIDs: assetId, // Single asset ID or comma-separated for multiple
@@ -126,7 +122,8 @@ class ElockApiService {
       }, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 15000 // 15 second timeout
       });
 
       console.log('✅ Successfully retrieved asset location from iCloud LBS API');
@@ -190,31 +187,61 @@ class ElockApiService {
       console.error('❌ Failed to get device location from iCloud LBS API:', error.message);
       throw new Error(`Failed to get device location: ${error.message}`);
     }
-  }
-
-  /**
-   * Unlock E-Lock device
+  }  /**
+   * Unlock E-Lock device using iCloud Assets Controls API
+   * Follows the same flow as the React frontend: first get asset data, then unlock
    */
   async unlockDevice(assetId) {
     try {
-      await this.ensureValidToken();
+      await this.ensureValidICloudToken();
 
-      const response = await axios.post(`${this.baseURL}/Instruction`, {
-        "f-asset-id": assetId,
-        "f-action": "open lock control"
+      // Step 1: First, get the asset data to retrieve the FGUID (same as React code)
+      const adminURL = 'http://icloud.assetscontrols.com:8092/OpenApi/Admin';
+        const assetResponse = await axios.post(adminURL, {
+        FAction: 'QueryAdminAssetByAssetId',
+        FTokenID: this.fTokenID,
+        FAssetID: assetId
       }, {
         headers: {
-          'Authorization': `Bearer ${this.token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 15000 // 15 second timeout
       });
 
-      return response.data;
+      if (!assetResponse.data.FObject || assetResponse.data.FObject.length === 0) {
+        throw new Error('Asset not found in external system');
+      }
+
+      const assetData = assetResponse.data.FObject[0];
+      
+      // Step 2: Now send the unlock command using the FGUID (same as React code)
+      const unlockURL = 'http://icloud.assetscontrols.com:8092/OpenApi/Instruction';
+        const unlockResponse = await axios.post(unlockURL, {
+        FTokenID: this.fTokenID,
+        FAction: 'OpenLockControl',
+        FAssetGUID: assetData.FGUID
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000 // 15 second timeout
+      });
+
+      console.log('✅ Unlock command sent successfully via iCloud API');
+      
+      // Return response similar to React code structure
+      return {
+        success: unlockResponse.data.Result === 200,
+        response: unlockResponse.data,
+        assetId,
+        assetGUID: assetData.FGUID,
+        message: unlockResponse.data.Result === 200 ? 'Unlock instruction sent successfully!' : unlockResponse.data.Message
+      };
     } catch (error) {
-      console.error('❌ Failed to unlock device:', error.message);
+      console.error('❌ Failed to unlock device via iCloud API:', error.message);
       throw new Error(`Failed to unlock device: ${error.message}`);
     }
-  }  /**
+  }/**
    * Get E-Lock assignment and history data from third-party API
    */
   async getElockHistory(page = 1, limit = 100, search = '') {
@@ -340,6 +367,38 @@ class ElockApiService {
           }
         };
       }
+    }
+  }
+
+  /**
+   * Query asset data by Asset ID to get FGUID and other details
+   * This follows the same pattern as the React frontend
+   */
+  async getAssetData(assetId) {
+    try {
+      await this.ensureValidICloudToken();
+
+      const adminURL = 'http://icloud.assetscontrols.com:8092/OpenApi/Admin';
+      
+      const response = await axios.post(adminURL, {
+        FAction: 'QueryAdminAssetByAssetId',
+        FTokenID: this.fTokenID,
+        FAssetID: assetId
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('✅ Asset data retrieved successfully');
+      return {
+        success: true,
+        data: response.data,
+        assetId
+      };
+    } catch (error) {
+      console.error('❌ Failed to get asset data:', error.message);
+      throw new Error(`Failed to get asset data: ${error.message}`);
     }
   }
 }
