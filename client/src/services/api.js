@@ -115,9 +115,9 @@ export const apiService = {
   },
 
   // E-Lock Operations
-  getAssignments: async (page = 1, limit = 100, search = '', status = '') => {
+  getAssignments: async ({ page = 1, limit = 100, search = '', status = '', ieCodeNo = '' } = {}) => {
     const response = await api.get('/elock/assignments', {
-      params: { page, limit, search, status }
+      params: { page, limit, search, status, ieCodeNo }
     });
     return response.data;
   },
@@ -151,4 +151,5 @@ export const apiService = {
   }
 };
 
+export { api };
 export default apiService;

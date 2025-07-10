@@ -9,25 +9,27 @@ const router = express.Router();
  */
 router.get('/assignments', async (req, res) => {
   try {
-    const { page = 1, limit = 100, search = '', status = '' } = req.query;
-    const ieCodeNo = req.ieCodeNo || '';
-    
-    console.log(`📡 Fetching assignments - Page: ${page}, Limit: ${limit}, Search: "${search}", IE Code: "${ieCodeNo}", Status: "${status}"`);
-    
-    // Use SSO-enabled method if we have an IE code, otherwise fallback to regular method
-    const result = ieCodeNo 
-      ? await elockApiService.getElockHistoryWithAutoFilter(
-          parseInt(page),
-          parseInt(limit),
-          search,
-          ieCodeNo,
-          status
-        )
-      : await elockApiService.getElockHistory(
-          parseInt(page),
-          parseInt(limit),
-          search
-        );
+    const { page = 1, limit = 100, search = '', status = '', ieCodeNo = '' } = req.query;
+
+    let result;
+    if (ieCodeNo) {
+      // Always use the new API with SSO filtering
+      result = await elockApiService.getElockHistoryWithSsoFiltering(
+        parseInt(page),
+        parseInt(limit),
+        search,
+        ieCodeNo,
+        '', // filterType: let backend try both consignor/consignee
+        status
+      );
+    } else {
+      // Fallback to old method if no ieCodeNo
+      result = await elockApiService.getElockHistory(
+        parseInt(page),
+        parseInt(limit),
+        search
+      );
+    }
 
     if (result.success) {
       res.json({

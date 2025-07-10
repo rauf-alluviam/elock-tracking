@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Unlock, RefreshCw, Search, AlertCircle, CheckCircle } from 'lucide-react';
-import { apiService } from '../services/api';
+import { apiService, api } from '../services/api';
 import MapModal from './MapModal';
 import Toast from './Toast';
 import LoadingSpinner from './LoadingSpinner';
-
+import axios from 'axios';
 const Dashboard = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,27 +26,32 @@ const Dashboard = () => {
     fetchUserData();
   }, [currentPage, searchTerm, statusFilter]);
   
-  const fetchUserData = async () => {
-    try {
-      // Use api.get directly since we don't have a wrapper method for this endpoint
-      const response = await axios.get('/api/auth/me');
-      if (response.data && response.data.success && response.data.user) {
-        setUserData(response.data.user);
-        // Show a toast notification if there's an IE code
-        if (response.data.user.ieCodeNo) {
-          showToast(`Authenticated with IE Code: ${response.data.user.ieCodeNo}`, 'success');
-        }
+ const fetchUserData = async () => {
+  try {
+    // Use the axios instance from apiService to include the token
+    const response = await api.get('/auth/me');
+    if (response.data && response.data.success && response.data.user) {
+      setUserData(response.data.user);
+      if (response.data.user.ieCodeNo) {
+        showToast(`Authenticated with IE Code: ${response.data.user.ieCodeNo}`, 'success');
       }
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
     }
-  };
+  } catch (error) {
+    console.error('Failed to fetch user data:', error);
+  }
+};
   const fetchAssignments = async () => {
     try {
       setLoading(true);
       console.log('🔄 Fetching assignments...');
       
-      const response = await apiService.getAssignments(currentPage, itemsPerPage, searchTerm, statusFilter);
+const response = await apiService.getAssignments({
+  page: currentPage,
+  limit: itemsPerPage,
+  search: searchTerm,
+  status: statusFilter,
+  ieCodeNo: userData?.ieCodeNo || ''
+});
       
       if (response.success) {
         // Handle different response structures
