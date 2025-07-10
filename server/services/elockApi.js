@@ -123,7 +123,7 @@ class ElockApiService {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 15000 // 15 second timeout
+        timeout: 15003 // 15 second timeout
       });
 
       console.log('✅ Successfully retrieved asset location from iCloud LBS API');
@@ -205,7 +205,7 @@ class ElockApiService {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 15000 // 15 second timeout
+        timeout: 15003 // 15 second timeout
       });
 
       if (!assetResponse.data.FObject || assetResponse.data.FObject.length === 0) {
@@ -224,7 +224,7 @@ class ElockApiService {
         headers: {
           'Content-Type': 'application/json'
         },
-        timeout: 15000 // 15 second timeout
+        timeout: 15003 // 15 second timeout
       });
 
       console.log('✅ Unlock command sent successfully via iCloud API');
@@ -247,8 +247,8 @@ class ElockApiService {
   async getElockHistory(page = 1, limit = 100, search = '') {
     try {
       // Use the actual third-party API endpoint
-      const url = `http://43.205.59.159:9000/api/elock-assign&other-history`;
-      
+      const url = `http://13.201.247.240:9005/api/elock-assign&other-history`;
+
       const response = await axios.get(url, {
         params: {
           page,
@@ -325,6 +325,154 @@ class ElockApiService {
         limit: limit
       };
     }
+  }
+
+  /**
+   * Get E-Lock assignment and history data from third-party API with SSO token filtering
+   * @param {number} page - Page number
+   * @param {number} limit - Number of items per page 
+   * @param {string} search - Search term
+   * @param {string} ieCodeNo - IE Code Number from SSO token
+   * @param {string} filterType - Filter type (consignor or consignee)
+   * @param {string} status - Status filter (ASSIGNED, RETURNED, UNASSIGNED)
+   */
+  async getElockHistoryWithSsoFiltering(page = 1, limit = 100, search = '', ieCodeNo = '', filterType = '', status = '') {
+    try {
+      // Use the client API endpoint which supports filtering
+      const url = `http://13.201.247.240:9005/api/client-elock-assign`;
+
+      // Build query parameters
+      const params = {
+        page,
+        limit,
+        search
+      };
+
+      // Add status filter if provided
+      if (status) {
+        params.status = status;
+      }
+
+      // Add IE Code Number filtering if provided
+      if (ieCodeNo && filterType) {
+        params.ieCodeNo = ieCodeNo;
+        params.filterType = filterType;
+      }
+
+      console.log(`📡 Fetching E-Lock history with params:`, params);
+
+      const response = await axios.get(url, {
+        params,
+        timeout: 10000, // 10 second timeout
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('✅ Successfully fetched E-Lock history data from third-party API with filtering');
+      
+      // Transform the response to match our expected format
+      if (response.data && response.data.data) {
+        const transformedData = response.data.data.map(item => ({
+          // Required fields for dashboard
+          container_no: item.container_number || 'N/A',
+          container_details: `TR: ${item.tr_no || 'N/A'} | Vehicle: ${item.vehicle_no || 'N/A'} | Driver: ${item.driver_name || 'N/A'}`,
+          total_weight: item.gross_weight || item.net_weight || 'N/A',
+          consignor_name: item.consignor?.name || 'N/A',
+          consignee_name: item.consignee?.name || 'N/A',
+          seal_no: item.seal_no || 'N/A',
+          pickup_location_address: item.goods_pickup ? 
+            `${item.goods_pickup.name}, ${item.goods_pickup.city}, ${item.goods_pickup.state} - ${item.goods_pickup.postal_code}` : 'N/A',
+          delivery_location_address: item.goods_delivery ? 
+            `${item.goods_delivery.name}, ${item.goods_delivery.city}, ${item.goods_delivery.state} - ${item.goods_delivery.postal_code}` : 'N/A',
+          location: null, // This field might come from GPS data separately
+          
+          // Additional useful fields
+          f_asset_id: item.elock_no_details?.FAssetID || item.elock_no,
+          elock_status: item.elock_assign_status,
+          driver_name: item.driver_name,
+          driver_phone: item.driver_phone,
+          vehicle_no: item.vehicle_no,
+          tr_no: item.tr_no,
+          elock_no: item.elock_no,
+          
+          // Original ID for reference
+          _id: item._id
+        }));
+
+        return {
+          success: true,
+          data: transformedData,
+          totalCount: response.data.total || 0,
+          totalPages: response.data.totalPages || 1,
+          currentPage: response.data.currentPage || page,
+          limit: limit
+        };
+      }
+
+      return {
+        success: true,
+        data: [],
+        totalCount: 0,
+        totalPages: 1,
+        currentPage: page,
+        limit: limit
+      };
+    } catch (error) {
+      console.error('❌ Failed to get E-Lock history with SSO filtering:', error.message);
+      
+      // Return a more detailed error response
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+        totalCount: 0,
+        totalPages: 1,
+        currentPage: page,
+        limit: limit
+      };
+    }
+  }
+
+  /**
+   * Try both consignor and consignee filtering with fallback
+   * This method tries first as consignor, and if no results, tries as consignee
+   */
+  async getElockHistoryWithAutoFilter(page = 1, limit = 100, search = '', ieCodeNo = '', status = '') {
+    // If no IE Code, just use regular method
+    if (!ieCodeNo) {
+      return await this.getElockHistory(page, limit, search);
+    }
+    
+    // First try as consignor
+    const consignorResults = await this.getElockHistoryWithSsoFiltering(
+      page, 
+      limit, 
+      search, 
+      ieCodeNo, 
+      'consignor',
+      status
+    );
+    
+    // If we got results, return them
+    if (consignorResults.success && consignorResults.data && consignorResults.data.length > 0) {
+      console.log(`✅ Found ${consignorResults.data.length} results as consignor`);
+      return consignorResults;
+    }
+    
+    // Otherwise try as consignee
+    console.log('ℹ️ No results as consignor, trying as consignee');
+    const consigneeResults = await this.getElockHistoryWithSsoFiltering(
+      page, 
+      limit, 
+      search, 
+      ieCodeNo, 
+      'consignee',
+      status
+    );
+    
+    return consigneeResults;
   }
 
   /**

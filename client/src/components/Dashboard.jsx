@@ -15,19 +15,38 @@ const Dashboard = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [toast, setToast] = useState(null);
   const [loadingStates, setLoadingStates] = useState({});
+  const [statusFilter, setStatusFilter] = useState('');
+  const [userData, setUserData] = useState(null);
 
   const itemsPerPage = 10;
 
   useEffect(() => {
     fetchAssignments();
     checkServiceStatus();
-  }, [currentPage, searchTerm]);
+    fetchUserData();
+  }, [currentPage, searchTerm, statusFilter]);
+  
+  const fetchUserData = async () => {
+    try {
+      // Use api.get directly since we don't have a wrapper method for this endpoint
+      const response = await axios.get('/api/auth/me');
+      if (response.data && response.data.success && response.data.user) {
+        setUserData(response.data.user);
+        // Show a toast notification if there's an IE code
+        if (response.data.user.ieCodeNo) {
+          showToast(`Authenticated with IE Code: ${response.data.user.ieCodeNo}`, 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    }
+  };
   const fetchAssignments = async () => {
     try {
       setLoading(true);
       console.log('🔄 Fetching assignments...');
       
-      const response = await apiService.getAssignments(currentPage, itemsPerPage, searchTerm);
+      const response = await apiService.getAssignments(currentPage, itemsPerPage, searchTerm, statusFilter);
       
       if (response.success) {
         // Handle different response structures
@@ -280,8 +299,8 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
+            <div className="flex-1 relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
@@ -291,6 +310,29 @@ const Dashboard = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
+            
+            {/* Status Filter */}
+            <div className="relative w-full md:w-48">
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1); // Reset to first page on filter change
+                }}
+              >
+                <option value="">All Status</option>
+                <option value="ASSIGNED">Assigned</option>
+                <option value="RETURNED">Returned</option>
+                <option value="UNASSIGNED">Unassigned</option>
+              </select>
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </div>
+            
             <button
               onClick={fetchAssignments}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"

@@ -9,15 +9,25 @@ const router = express.Router();
  */
 router.get('/assignments', async (req, res) => {
   try {
-    const { page = 1, limit = 100, search = '' } = req.query;
+    const { page = 1, limit = 100, search = '', status = '' } = req.query;
+    const ieCodeNo = req.ieCodeNo || '';
     
-    console.log(`📡 Fetching assignments - Page: ${page}, Limit: ${limit}, Search: "${search}"`);
+    console.log(`📡 Fetching assignments - Page: ${page}, Limit: ${limit}, Search: "${search}", IE Code: "${ieCodeNo}", Status: "${status}"`);
     
-    const result = await elockApiService.getElockHistory(
-      parseInt(page),
-      parseInt(limit),
-      search
-    );
+    // Use SSO-enabled method if we have an IE code, otherwise fallback to regular method
+    const result = ieCodeNo 
+      ? await elockApiService.getElockHistoryWithAutoFilter(
+          parseInt(page),
+          parseInt(limit),
+          search,
+          ieCodeNo,
+          status
+        )
+      : await elockApiService.getElockHistory(
+          parseInt(page),
+          parseInt(limit),
+          search
+        );
 
     if (result.success) {
       res.json({
