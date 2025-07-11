@@ -27,17 +27,17 @@ app.use(helmet({
 app.use(morgan('combined'));
 app.use(cors({
   // Allow specific origins for HTTP environments
-  origin: [
-    'http://localhost:3005', // E-Lock system
-    'http://localhost:5173', // Development frontend
-    'http://localhost:3001', // Client application
-    'http://localhost:9001', // Server application
-    'http://127.0.0.1:3000', // Local IP address alternative
-    'http://127.0.0.1:5173', // Local IP address alternative
-    // Add production domains as needed
-    process.env.CLIENT_URL, // From environment variable
-    process.env.ADDITIONAL_CLIENT_URL // Optional additional URL
-  ].filter(Boolean), // Remove undefined/null entries
+origin: [
+  'http://localhost:3005',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  'http://localhost:9001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://13.201.247.240:9005', // <-- Only the host, not the full API path
+  process.env.CLIENT_URL,
+  process.env.ADDITIONAL_CLIENT_URL
+].filter(Boolean),// Remove undefined/null entries
   credentials: true, // Allow cookies in cross-origin requests
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH'], // Allowed HTTP methods
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
@@ -47,6 +47,52 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+
+app.get('/api/proxy/client-elock-assign', async (req, res) => {
+  try {
+    const { page, limit, ieCodeNo } = req.query;
+    
+    // Make request to external API
+    const response = await axios.get('http://13.201.247.240:9005/api/client-elock-assign', {
+      params: { page, limit, ieCodeNo },
+      timeout: 10000, // 10 second timeout
+      headers: {
+        'User-Agent': 'Express-Proxy-Server',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    // Forward the response
+    res.json(response.data);
+  } catch (error) {
+    console.error('Proxy API Error:', error.message);
+    
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      res.status(error.response.status).json({
+        error: 'External API Error',
+        message: error.response.data?.message || error.message,
+        status: error.response.status
+      });
+    } else if (error.request) {
+      // The request was made but no response was received
+      res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'Unable to reach external API',
+        details: error.message
+      });
+    } else {
+      // Something happened in setting up the request
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: error.message
+      });
+    }
+  }
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

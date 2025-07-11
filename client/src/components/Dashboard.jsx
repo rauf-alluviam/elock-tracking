@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Unlock, RefreshCw, Search, AlertCircle, CheckCircle } from 'lucide-react';
+import { MapPin, Unlock, RefreshCw, Search, AlertCircle, CheckCircle, User } from 'lucide-react';
 import { apiService, api } from '../services/api';
 import MapModal from './MapModal';
 import Toast from './Toast';
 import LoadingSpinner from './LoadingSpinner';
-import axios from 'axios';
+
 const Dashboard = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,57 +16,81 @@ const Dashboard = () => {
   const [toast, setToast] = useState(null);
   const [loadingStates, setLoadingStates] = useState({});
   const [statusFilter, setStatusFilter] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [userData, setUserData] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   const itemsPerPage = 10;
 
   useEffect(() => {
-    fetchAssignments();
-    checkServiceStatus();
     fetchUserData();
-  }, [currentPage, searchTerm, statusFilter]);
-  
- const fetchUserData = async () => {
-  try {
-    // Use the axios instance from apiService to include the token
-    const response = await api.get('/auth/me');
-    if (response.data && response.data.success && response.data.user) {
-      setUserData(response.data.user);
-      if (response.data.user.ieCodeNo) {
-        showToast(`Authenticated with IE Code: ${response.data.user.ieCodeNo}`, 'success');
-      }
+    checkServiceStatus();
+  }, []);
+
+  useEffect(() => {
+    if (userData) {
+      fetchAssignments();
     }
-  } catch (error) {
-    console.error('Failed to fetch user data:', error);
-  }
-};
+  }, [currentPage, searchTerm, statusFilter, filterType, userData]);
+
+  const fetchUserData = async () => {
+    try {
+      const response = await apiService.getUserData();
+      if (response && response.success && response.user) {
+        setUserData(response.user);
+        console.log('✅ User data loaded:', response.user);
+        if (response.user.ieCodeNo) {
+          showToast(`Authenticated with IE Code: ${response.user.ieCodeNo}`, 'success');
+        }
+      } else {
+        console.error('❌ Failed to fetch user data:', response);
+        showToast('Failed to load user data', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user data:', error);
+      showToast('Error loading user data', 'error');
+    }
+  };
+
   const fetchAssignments = async () => {
     try {
       setLoading(true);
       console.log('🔄 Fetching assignments...');
       
-const response = await apiService.getAssignments({
-  page: currentPage,
-  limit: itemsPerPage,
-  search: searchTerm,
-  status: statusFilter,
-  ieCodeNo: userData?.ieCodeNo || ''
-});
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm,
+        status: statusFilter,
+        filterType: filterType,
+        ieCodeNo: userData?.ieCodeNo || ''
+      };
+
+      console.log('📊 Request params:', params);
+      
+      const response = await apiService.getElockAssignments(params);
       
       if (response.success) {
         // Handle different response structures
         let assignmentData = [];
+        let total = 0;
         
         if (Array.isArray(response.data)) {
           assignmentData = response.data;
+          total = response.total || response.data.length;
         } else if (response.data && Array.isArray(response.data.data)) {
           assignmentData = response.data.data;
+          total = response.data.total || response.data.data.length;
         } else if (response.data && response.data.assignments) {
           assignmentData = response.data.assignments;
+          total = response.data.total || response.data.assignments.length;
         }
         
         console.log('✅ Assignments fetched:', assignmentData.length, 'containers');
+        console.log('📈 Total count:', total);
+        
         setAssignments(assignmentData);
+        setTotalCount(total);
         
         if (assignmentData.length === 0) {
           showToast('No container assignments found', 'info');
@@ -75,34 +99,28 @@ const response = await apiService.getAssignments({
         console.error('❌ API returned error:', response.error);
         showToast(response.error || 'Failed to fetch assignments', 'error');
         setAssignments([]);
+        setTotalCount(0);
       }
     } catch (error) {
       console.error('❌ Error fetching assignments:', error);
       showToast('Network error: Unable to fetch data from server', 'error');
       setAssignments([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
   };
+
   const checkServiceStatus = async () => {
     try {
-      const [mainService, icloudService] = await Promise.allSettled([
-        apiService.getServiceStatus(),
-        apiService.getICloudServiceStatus()
-      ]);
-      
-      const mainServiceOnline = mainService.status === 'fulfilled' && mainService.value.success;
-      const icloudServiceOnline = icloudService.status === 'fulfilled' && icloudService.value.success;
-      
+      const response = await apiService.getServiceStatus();
       setServiceStatus({
-        main: mainServiceOnline,
-        icloud: icloudServiceOnline,
-        overall: mainServiceOnline && icloudServiceOnline
+        main: response.success,
+        overall: response.success
       });
     } catch (error) {
       setServiceStatus({
         main: false,
-        icloud: false,
         overall: false
       });
     }
@@ -128,8 +146,6 @@ const response = await apiService.getAssignments({
       } else {
         showToast('Location data not available', 'error');
       }
-
-      console.log("location response:", response);
     } catch (error) {
       console.error('Error fetching location:', error);
       showToast('Failed to fetch location data', 'error');
@@ -161,65 +177,6 @@ const response = await apiService.getAssignments({
     }
   };
 
-  const handleBulkLocationTracking = async () => {
-    const selectedAssets = assignments
-      .filter(assignment => assignment.f_asset_id)
-      .map(assignment => assignment.f_asset_id)
-      .slice(0, 5); // Limit to first 5 for demo
-
-    if (selectedAssets.length === 0) {
-      showToast('No assets available for bulk tracking', 'error');
-      return;
-    }
-
-    setLoadingStates(prev => ({ ...prev, bulkTracking: true }));
-    
-    try {
-      const response = await apiService.getMultipleAssetLocations(selectedAssets);
-      if (response.success && response.data) {
-        showToast(`Bulk location tracking completed for ${selectedAssets.length} assets`, 'success');
-        console.log('Bulk tracking results:', response.data);
-        // You can update the UI to show all locations or process the data as needed
-      } else {
-        showToast('Bulk location tracking failed', 'error');
-      }
-    } catch (error) {
-      console.error('Error in bulk location tracking:', error);
-      showToast('Failed to perform bulk location tracking', 'error');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, bulkTracking: false }));
-    }
-  };
-
-  const handleDeviceLocationTracking = async (deviceId, containerNo) => {
-    if (!deviceId) {
-      showToast('Device ID not available for this container', 'error');
-      return;
-    }
-
-    setLoadingStates(prev => ({ ...prev, [`device_${deviceId}`]: true }));
-    
-    try {
-      const response = await apiService.getDeviceLocation(deviceId);
-      if (response.success && response.data) {
-        setSelectedLocation({
-          ...response.data,
-          containerNo,
-          deviceId,
-          type: 'device'
-        });
-        setShowMapModal(true);
-      } else {
-        showToast('Device location data not available', 'error');
-      }
-    } catch (error) {
-      console.error('Error fetching device location:', error);
-      showToast('Failed to fetch device location data', 'error');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [`device_${deviceId}`]: false }));
-    }
-  };
-
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
@@ -230,19 +187,31 @@ const response = await apiService.getAssignments({
     setCurrentPage(1);
   };
 
+  const handleStatusFilterChange = (e) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleFilterTypeChange = (e) => {
+    setFilterType(e.target.value);
+    setCurrentPage(1);
+  };
+
   const formatFieldValue = (value) => {
     if (!value || value === 'null' || value === 'undefined') return 'N/A';
     return value;
   };
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
   if (loading && assignments.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner 
-          message="Connecting to E-Lock API and fetching container data..." 
-          size="large" 
-        />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
@@ -254,7 +223,15 @@ const response = await apiService.getAssignments({
             <div>
               <h1 className="text-3xl font-bold text-gray-900">E-Lock Tracking System</h1>
               <p className="text-gray-600 mt-1">Monitor and control electronic locks in real-time</p>
-            </div>            <div className="flex items-center space-x-4">              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
+              {userData && (
+                <div className="flex items-center mt-2 text-sm text-blue-600">
+                  <User className="h-4 w-4 mr-1" />
+                  <span>IE Code: {userData.ieCodeNo}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
                 serviceStatus?.overall 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-red-100 text-red-800'
@@ -262,30 +239,15 @@ const response = await apiService.getAssignments({
                 {serviceStatus?.overall ? (
                   <>
                     <CheckCircle className="h-4 w-4" />
-                    <span>All Services Online</span>
+                    <span>Service Online</span>
                   </>
                 ) : (
                   <>
                     <AlertCircle className="h-4 w-4" />
-                    <span>
-                      {serviceStatus?.main === false && serviceStatus?.icloud === false 
-                        ? 'All Services Offline'
-                        : serviceStatus?.main === false 
-                          ? 'Main Service Offline'
-                          : 'iCloud API Offline'
-                      }
-                    </span>
+                    <span>Service Offline</span>
                   </>
                 )}
               </div>
-              <button
-                onClick={handleBulkLocationTracking}
-                disabled={loadingStates.bulkTracking || assignments.length === 0}
-                className="inline-flex items-center px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <MapPin className="h-4 w-4 mr-2" />
-                {loadingStates.bulkTracking ? 'Tracking...' : 'Bulk Track'}
-              </button>
               <button
                 onClick={() => {
                   fetchAssignments();
@@ -304,8 +266,9 @@ const response = await apiService.getAssignments({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
-            <div className="flex-1 relative w-full">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Search Input */}
+            <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
@@ -317,47 +280,57 @@ const response = await apiService.getAssignments({
             </div>
             
             {/* Status Filter */}
-            <div className="relative w-full md:w-48">
+            <div className="relative">
               <select
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setCurrentPage(1); // Reset to first page on filter change
-                }}
+                onChange={handleStatusFilterChange}
               >
                 <option value="">All Status</option>
                 <option value="ASSIGNED">Assigned</option>
                 <option value="RETURNED">Returned</option>
                 <option value="UNASSIGNED">Unassigned</option>
               </select>
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                </svg>
-              </div>
             </div>
-            
-            <button
-              onClick={fetchAssignments}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
-            >
-              Search
-            </button>
+
+            {/* Filter Type */}
+            <div className="relative">
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                value={filterType}
+                onChange={handleFilterTypeChange}
+              >
+                <option value="">All Types</option>
+                <option value="consignor">Consignor</option>
+                <option value="consignee">Consignee</option>
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Assignments Table */}
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Container Assignments</h2>
-            <p className="text-sm text-gray-600">
-              {assignments.length} containers found
-            </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Container Assignments</h2>
+                <p className="text-sm text-gray-600">
+                  {totalCount} total containers, showing {assignments.length} on page {currentPage}
+                </p>
+              </div>
+              
+              {/* Pagination Info */}
+              {totalPages > 1 && (
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span>Page {currentPage} of {totalPages}</span>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Container Info
@@ -430,14 +403,6 @@ const response = await apiService.getAssignments({
                             {formatFieldValue(assignment.delivery_location_address)}
                           </div>
                         </div>
-                        {assignment.location && (
-                          <div>
-                            <span className="text-xs font-medium text-blue-600">CURRENT:</span>
-                            <div className="text-blue-800 text-xs max-w-xs truncate">
-                              {formatFieldValue(assignment.location)}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -483,11 +448,63 @@ const response = await apiService.getAssignments({
           </div>
         </div>
 
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6 mt-6 rounded-lg shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of{' '}
+                  <span className="font-medium">{totalCount}</span> results
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                
+                {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                  const pageNum = Math.max(1, currentPage - 2) + index;
+                  if (pageNum <= totalPages) {
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                          pageNum === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'text-gray-700 bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  }
+                  return null;
+                })}
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {assignments.length === 0 && !loading && (
           <div className="text-center py-12">
             <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No assignments found</h3>
-            <p className="mt-1 text-sm text-gray-500">Try adjusting your search criteria.</p>
+            <p className="mt-1 text-sm text-gray-500">Try adjusting your search criteria or filters.</p>
           </div>
         )}
       </div>

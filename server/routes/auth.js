@@ -55,8 +55,9 @@ router.post('/logout', (req, res) => {
  * GET /api/auth/me
  * Get current user info
  */
-router.get('/me', verifyToken, (req, res) => {
+router.get('/me',verifyToken,(req, res) => {
   // Get user data from verified token
+  console.log('req.userData:', req.userData);
   if (req.userData) {
     res.json({
       success: true,
@@ -86,6 +87,7 @@ router.get('/me', verifyToken, (req, res) => {
  */
 router.post('/verify-token', (req, res) => {
   try {
+    
     // Token can be in body or as a query parameter for HTTP compatibility
     let token = req.body.token;
     
@@ -141,7 +143,7 @@ router.post('/verify-token', (req, res) => {
       expires: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : null,
       expiresIn: decoded.exp ? decoded.exp - Math.floor(Date.now() / 1000) : null
     });
-    console.log("Response", res.json);
+    
   } catch (error) {
     console.error('❌ Token verification failed:', error.message);
     

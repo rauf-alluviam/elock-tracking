@@ -10,7 +10,7 @@ const TEST_SECRET = 'elock_test_secret_123';
 const payload = {
   ie_code_no: '812023773',
   iat: Math.floor(Date.now() / 1000),
-  exp: Math.floor(Date.now() / 1000) + (60 * 10) // 10 minutes from now
+  exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 1 day from now
 };
 
 try {
