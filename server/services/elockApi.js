@@ -64,95 +64,160 @@ class ElockApiService {
 
   /**
    * Get E-Lock assignments with optimized filtering
-   * @param {number} page
-   * @param {number} limit
-   * @param {string} search
-   * @param {string} ieCodeNo
-   * @param {string} filterType
-   * @param {string} status
-   * @returns {Promise<object>} assignments result
+   * Applied optimized logic with support for:
+   * 1. status: (RETURNED, ASSIGNED, UNASSIGNED)
+   * 2. filterType: (consignor, consignee)
+   * 3. ieCodeNo based sorting for crisp backend-processed data
    */
-  async getElockAssignments(page = 1, limit = 100, search = '', ieCodeNo = '', filterType = '', status = '') {
-    try {
-      // Build query parameters for third-party API
-      const params = {
-        page: parseInt(page),
-        limit: parseInt(limit)
-      };
-      if (search) params.search = search;
-      if (status) params.status = status;
-      if (ieCodeNo) params.ieCodeNo = ieCodeNo;
-      if (filterType) params.filterType = filterType;
+  async getElockAssignments () {
+  try {
+    const {
+      page = 1,
+      limit = 100,
+      search = '',
+      status = '',
+      filterType = '',
+      ieCodeNo = ''
+    } = req.query;
 
-      // Call the third-party API
-      const response = await axios.get(`${this.thirdPartyBaseURL}/client-elock-assign`, {
-        params,
-        timeout: 15000,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+    console.log('🔍 Backend: Processing assignment request with params:', req.query);
 
-      // Transform the response to match your expected format
-      let transformedData = [];
-      if (response.data && response.data.jobs) {
-        transformedData = response.data.jobs.map(item => ({
-          container_no: item.container_number || 'N/A',
-          container_details: `TR: ${item.tr_no || 'N/A'} | Vehicle: ${item.vehicle_no || 'N/A'} | Driver: ${item.driver_name || 'N/A'}`,
-          total_weight: item.gross_weight || item.net_weight || 'N/A',
-          consignor_name: item.consignor?.name || 'N/A',
-          consignee_name: item.consignee?.name || 'N/A',
-          seal_no: item.seal_no || 'N/A',
-          pickup_location_address: item.goods_pickup ? 
-            `${item.goods_pickup.name}, ${item.goods_pickup.city}, ${item.goods_pickup.state} - ${item.goods_pickup.postal_code}` : 'N/A',
-          delivery_location_address: item.goods_delivery ? 
-            `${item.goods_delivery.name}, ${item.goods_delivery.city}, ${item.goods_delivery.state} - ${item.goods_delivery.postal_code}` : 'N/A',
-          f_asset_id: item.elock_no,
-          elock_status: item.elock_assign_status,
-          elock_no: item.elock_no,
-          driver_name: item.driver_name,
-          driver_phone: item.driver_phone,
-          vehicle_no: item.vehicle_no,
-          tr_no: item.tr_no,
-          _id: item._id,
-          location: null,
-          consignor: item.consignor,
-          consignee: item.consignee
-        }));
+    // Build query parameters for third-party API
+    const params = {
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+
+    // Add optional parameters only if provided
+    if (search) params.search = search;
+    if (status) params.status = status;
+    if (ieCodeNo) params.ieCodeNo = ieCodeNo;
+    if (filterType) params.filterType = filterType;
+
+    console.log('📡 Backend: Calling third-party API with params:', params);
+
+    // Call the third-party API
+    const response = await axios.get(`${THIRD_PARTY_API_URL}/client-elock-assign`, {
+      params,
+      timeout: 15000,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
+    });
 
-      return {
+    console.log('✅ Backend: Third-party API response received');
+
+    // Transform the response to match your expected format
+    if (response.data && response.data.jobs) {
+      const transformedData = response.data.jobs.map(item => ({
+        // Core fields for dashboard
+        container_no: item.container_number || 'N/A',
+        container_details: `TR: ${item.tr_no || 'N/A'} | Vehicle: ${item.vehicle_no || 'N/A'} | Driver: ${item.driver_name || 'N/A'}`,
+        total_weight: item.gross_weight || item.net_weight || 'N/A',
+        consignor_name: item.consignor?.name || 'N/A',
+        consignee_name: item.consignee?.name || 'N/A',
+        seal_no: item.seal_no || 'N/A',
+        pickup_location_address: item.goods_pickup ? 
+          `${item.goods_pickup.name}, ${item.goods_pickup.city}, ${item.goods_pickup.state} - ${item.goods_pickup.postal_code}` : 'N/A',
+        delivery_location_address: item.goods_delivery ? 
+          `${item.goods_delivery.name}, ${item.goods_delivery.city}, ${item.goods_delivery.state} - ${item.goods_delivery.postal_code}` : 'N/A',
+        
+        // E-Lock specific fields
+        f_asset_id: item.elock_no,
+        elock_status: item.elock_assign_status,
+        elock_no: item.elock_no,
+        
+        // Additional fields
+        driver_name: item.driver_name,
+        driver_phone: item.driver_phone,
+        vehicle_no: item.vehicle_no,
+        tr_no: item.tr_no,
+        
+        // Original ID for reference
+        _id: item._id,
+        
+        // Location placeholder (will be populated by location API)
+        location: null,
+        
+        // Add consignor/consignee details for filtering
+        consignor: item.consignor,
+        consignee: item.consignee
+      }));
+
+      const result = {
         success: true,
         data: transformedData,
-        totalCount: response.data.totalJobs || 0,
-        totalPages: response.data.totalPages || 1,
-        currentPage: response.data.currentPage || parseInt(page),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalCount: response.data.totalJobs || 0,
+          totalPages: response.data.totalPages || 1,
+          currentPage: response.data.currentPage || parseInt(page)
+        },
         filters: {
           status,
           filterType,
           ieCodeNo,
           search
-        }
+        },
+        message: `Found ${transformedData.length} assignments`
       };
-    } catch (error) {
-      console.error('❌ Backend: Error in getElockAssignments:', error.message);
-      return {
-        success: false,
-        error: error.message,
-        data: [],
+
+      console.log('✅ Backend: Sending transformed response');
+      return res.json(result);
+    }
+
+    // If no jobs found
+    const emptyResult = {
+      success: true,
+      data: [],
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
         totalCount: 0,
         totalPages: 1,
-        currentPage: parseInt(page) || 1,
-        filters: {
-          status,
-          filterType,
-          ieCodeNo,
-          search
-        }
-      };
-    }
+        currentPage: parseInt(page)
+      },
+      filters: {
+        status,
+        filterType,
+        ieCodeNo,
+        search
+      },
+      message: 'No assignments found'
+    };
+
+    console.log('ℹ️ Backend: No assignments found');
+    return res.json(emptyResult);
+
+  } catch (error) {
+    console.error('❌ Backend: Error in getElockAssignments:', error.message);
+    
+    const errorResult = {
+      success: false,
+      error: error.message,
+      data: [],
+      pagination: {
+        page: parseInt(req.query.page) || 1,
+        limit: parseInt(req.query.limit) || 100,
+        totalCount: 0,
+        totalPages: 1,
+        currentPage: parseInt(req.query.page) || 1
+      },
+      filters: {
+        status: req.query.status || '',
+        filterType: req.query.filterType || '',
+        ieCodeNo: req.query.ieCodeNo || '',
+        search: req.query.search || ''
+      },
+      message: 'Failed to fetch assignments'
+    };
+
+    return res.status(500).json(errorResult);
   }
+}
+
 
   /**
    * Get asset location using iCloud Assets Controls LBS API

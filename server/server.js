@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
-import morgan from 'morgan';
+
 import cookieParser from 'cookie-parser';
 import connectDB from './config/database.js';
 import elockRoutes from './routes/elock.js';
@@ -24,7 +24,7 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production',
   crossOriginEmbedderPolicy: process.env.NODE_ENV === 'production'
 }));
-app.use(morgan('combined'));
+
 app.use(cors({
   // Allow specific origins for HTTP environments
 origin: [
