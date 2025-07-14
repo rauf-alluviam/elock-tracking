@@ -4,8 +4,14 @@ import { apiService, api } from '../services/api';
 import MapModal from './MapModal';
 import Toast from './Toast';
 import LoadingSpinner from './LoadingSpinner';
+import { useNavigate } from 'react-router-dom';
+
+const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
+const INSTRUCTION_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Instruction";
+const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -152,15 +158,39 @@ const Dashboard = () => {
       showToast('Asset ID not available for this container', 'error');
       return;
     }
-
     setLoadingStates(prev => ({ ...prev, [`unlock_${assetId}`]: true }));
-    
     try {
-      const response = await apiService.unlockDevice(assetId);
-      if (response.success) {
+      // Step 1: Get FGUID from Admin API
+      const adminRes = await fetch(ADMIN_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          FAction: 'QueryAdminAssetByAssetId',
+          FTokenID: TOKEN_ID,
+          FAssetID: assetId
+        })
+      });
+      const adminData = await adminRes.json();
+      if (!adminData.FObject || !adminData.FObject.length) {
+        showToast('Asset not found in system', 'error');
+        return;
+      }
+      const FGUID = adminData.FObject[0].FGUID;
+      // Step 2: Send unlock instruction
+      const unlockRes = await fetch(INSTRUCTION_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          FTokenID: TOKEN_ID,
+          FAction: 'OpenLockControl',
+          FAssetGUID: FGUID
+        })
+      });
+      const unlockData = await unlockRes.json();
+      if (unlockData.Result === 200) {
         showToast(`Unlock command sent successfully for ${containerNo}`, 'success');
       } else {
-        showToast('Failed to send unlock command', 'error');
+        showToast(unlockData.Message || 'Failed to send unlock command', 'error');
       }
     } catch (error) {
       console.error('Error unlocking device:', error);
@@ -504,6 +534,18 @@ const Dashboard = () => {
                             <Unlock className="h-3 w-3 mr-1" />
                           )}
                           Unlock
+                        </button>
+                        <button
+                          onClick={() => navigate(`/elock/${assignment.f_asset_id || assignment.elock_no}`)}
+                          disabled={!(assignment.f_asset_id || assignment.elock_no)}
+                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                            !(assignment.f_asset_id || assignment.elock_no)
+                              ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
+                              : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                          }`}
+                        >
+                          <MapPin className="h-3 w-3 mr-1" />
+                          Track
                         </button>
                       </div>
                     </td>

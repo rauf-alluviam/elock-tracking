@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import { apiService } from './services/api';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ElockGPSOperationPage from './pages/ElockGPSOperationPage';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -125,8 +127,15 @@ function App() {
     );
   }
 
-  // Successfully authenticated - render Dashboard
-  return <Dashboard />;
+  // Successfully authenticated - render Dashboard with routing
+  return (
+  
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/elock/:elockNo" element={<ElockGPSOperationPage />} />
+      </Routes>
+  
+  );
 }
 
 export default App;
