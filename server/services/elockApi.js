@@ -63,11 +63,67 @@ class ElockApiService {
   }
 
   /**
-   * Get E-Lock assignments with optimized filtering
-   * Applied optimized logic with support for:
-   * 1. status: (RETURNED, ASSIGNED, UNASSIGNED)
-   * 2. filterType: (consignor, consignee)
-   * 3. ieCodeNo based sorting for crisp backend-processed data
+   * Helper function to safely format address
+   */
+  formatAddress(locationObj) {
+    if (!locationObj) return 'N/A';
+    
+    const parts = [];
+    if (locationObj.name) parts.push(locationObj.name);
+    if (locationObj.city) parts.push(locationObj.city);
+    if (locationObj.district && locationObj.district !== locationObj.city) parts.push(locationObj.district);
+    if (locationObj.state) parts.push(locationObj.state);
+    if (locationObj.postal_code) parts.push(locationObj.postal_code);
+    if (locationObj.country) parts.push(locationObj.country);
+    
+    return parts.length > 0 ? parts.join(', ') : 'N/A';
+  }
+
+  /**
+   * Helper function to format company details
+   */
+  formatCompanyDetails(companyObj) {
+    if (!companyObj) return null;
+    
+    return {
+      id: companyObj._id,
+      name: companyObj.name,
+      alias: companyObj.alias,
+      type: companyObj.type,
+      gstin: companyObj.gstin,
+      panNo: companyObj.panNo,
+      ieCodeNo: companyObj.ieCodeNo,
+      binNo: companyObj.binNo,
+      cinNo: companyObj.cinNo,
+      cstNo: companyObj.cstNo,
+      stNo: companyObj.stNo,
+      stRegNo: companyObj.stRegNo,
+      tanNo: companyObj.tanNo,
+      vatNo: companyObj.vatNo,
+      branches: companyObj.branches?.map(branch => ({
+        id: branch._id,
+        branchName: branch.branchName,
+        address: branch.address,
+        country: branch.country,
+        state: branch.state,
+        city: branch.city,
+        postalCode: branch.postalCode,
+        telephoneNo: branch.telephoneNo,
+        fax: branch.fax,
+        website: branch.website,
+        emailAddress: branch.emailAddress,
+        taxableType: branch.taxableType,
+        addresses: branch.addresses,
+        contacts: branch.contacts
+      })) || [],
+      createdAt: companyObj.createdAt,
+      updatedAt: companyObj.updatedAt
+    };
+  }
+
+  /**
+   * Get E-Lock assignments with complete data mapping
+   * Applied comprehensive logic to include all available fields from the API response
    */
   async getElockAssignments(queryParams = {}) {
     try {
@@ -108,41 +164,106 @@ class ElockApiService {
 
       console.log('✅ Backend: Third-party API response received');
 
-      // Transform the response to match your expected format
+      // Transform the response to include ALL available fields
       if (response.data && response.data.jobs) {
         const transformedData = response.data.jobs.map(item => ({
-          // Core fields for dashboard
-          container_no: item.container_number || 'N/A',
-          container_details: `TR: ${item.tr_no || 'N/A'} | Vehicle: ${item.vehicle_no || 'N/A'} | Driver: ${item.driver_name || 'N/A'}`,
-          total_weight: item.gross_weight || item.net_weight || 'N/A',
-          consignor_name: item.consignor?.name || 'N/A',
-          consignee_name: item.consignee?.name || 'N/A',
-          seal_no: item.seal_no || 'N/A',
-          pickup_location_address: item.goods_pickup ? 
-            `${item.goods_pickup.name}, ${item.goods_pickup.city}, ${item.goods_pickup.state} - ${item.goods_pickup.postal_code}` : 'N/A',
-          delivery_location_address: item.goods_delivery ? 
-            `${item.goods_delivery.name}, ${item.goods_delivery.city}, ${item.goods_delivery.state} - ${item.goods_delivery.postal_code}` : 'N/A',
-          
-          // E-Lock specific fields
-          f_asset_id: item.elock_no,
-          elock_status: item.elock_assign_status,
-          elock_no: item.elock_no,
-          
-          // Additional fields
-          driver_name: item.driver_name,
-          driver_phone: item.driver_phone,
-          vehicle_no: item.vehicle_no,
+          // Original job ID and reference
+          _id: item._id,
           tr_no: item.tr_no,
           
-          // Original ID for reference
-          _id: item._id,
+          // Container and vehicle details
+          container_number: item.container_number,
+          container_no: item.container_number || 'N/A', // Alias for backward compatibility
+          vehicle_no: item.vehicle_no,
+          
+          // Driver information
+          driver_name: item.driver_name,
+          driver_phone: item.driver_phone,
+          
+          // E-Lock information
+          elock_no: item.elock_no,
+          f_asset_id: item.elock_no, // Alias for iCloud API compatibility
+          elock_assign_status: item.elock_assign_status,
+          elock_status: item.elock_assign_status, // Alias for backward compatibility
+          
+          // Consignor details (complete object)
+          consignor: this.formatCompanyDetails(item.consignor),
+          consignor_name: item.consignor?.name || 'N/A',
+          consignor_alias: item.consignor?.alias || 'N/A',
+          consignor_gstin: item.consignor?.gstin || 'N/A',
+          consignor_ie_code: item.consignor?.ieCodeNo || 'N/A',
+          
+          // Consignee details (complete object)
+          consignee: this.formatCompanyDetails(item.consignee),
+          consignee_name: item.consignee?.name || 'N/A',
+          consignee_alias: item.consignee?.alias || 'N/A',
+          consignee_gstin: item.consignee?.gstin || 'N/A',
+          consignee_ie_code: item.consignee?.ieCodeNo || 'N/A',
+          
+          // Pickup location details
+          goods_pickup: item.goods_pickup,
+          pickup_location: {
+            id: item.goods_pickup?._id,
+            name: item.goods_pickup?.name,
+            postal_code: item.goods_pickup?.postal_code,
+            city: item.goods_pickup?.city,
+            district: item.goods_pickup?.district,
+            state: item.goods_pickup?.state,
+            country: item.goods_pickup?.country,
+            createdAt: item.goods_pickup?.createdAt,
+            updatedAt: item.goods_pickup?.updatedAt
+          },
+          pickup_location_address: this.formatAddress(item.goods_pickup),
+          
+          // Delivery location details
+          goods_delivery: item.goods_delivery,
+          delivery_location: {
+            id: item.goods_delivery?._id,
+            name: item.goods_delivery?.name,
+            postal_code: item.goods_delivery?.postal_code,
+            city: item.goods_delivery?.city,
+            district: item.goods_delivery?.district,
+            state: item.goods_delivery?.state,
+            country: item.goods_delivery?.country,
+            createdAt: item.goods_delivery?.createdAt,
+            updatedAt: item.goods_delivery?.updatedAt
+          },
+          delivery_location_address: this.formatAddress(item.goods_delivery),
+          
+          // Additional fields that might be present
+          seal_no: item.seal_no || 'N/A',
+          gross_weight: item.gross_weight || 'N/A',
+          net_weight: item.net_weight || 'N/A',
+          total_weight: item.gross_weight || item.net_weight || 'N/A',
+          
+          // Consolidated details for display
+          container_details: `TR: ${item.tr_no || 'N/A'} | Vehicle: ${item.vehicle_no || 'N/A'} | Driver: ${item.driver_name || 'N/A'} | Phone: ${item.driver_phone || 'N/A'}`,
+          
+          // Trip summary
+          trip_summary: {
+            from: item.goods_pickup?.name || 'Unknown',
+            to: item.goods_delivery?.name || 'Unknown',
+            distance: item.distance || 'N/A',
+            estimated_time: item.estimated_time || 'N/A'
+          },
           
           // Location placeholder (will be populated by location API)
           location: null,
+          current_location: null,
           
-          // Add consignor/consignee details for filtering
-          consignor: item.consignor,
-          consignee: item.consignee
+          // Timestamps and additional metadata
+          created_at: item.createdAt,
+          updated_at: item.updatedAt,
+          
+          // Any additional fields that might be present in the future
+          ...Object.keys(item).reduce((acc, key) => {
+            if (!['_id', 'tr_no', 'container_number', 'vehicle_no', 'driver_name', 'driver_phone', 
+                  'elock_no', 'elock_assign_status', 'consignor', 'consignee', 'goods_pickup', 
+                  'goods_delivery', 'seal_no', 'gross_weight', 'net_weight', 'createdAt', 'updatedAt'].includes(key)) {
+              acc[key] = item[key];
+            }
+            return acc;
+          }, {})
         }));
 
         const result = {
@@ -153,7 +274,9 @@ class ElockApiService {
             limit: parseInt(limit),
             totalCount: response.data.totalJobs || 0,
             totalPages: response.data.totalPages || 1,
-            currentPage: response.data.currentPage || parseInt(page)
+            currentPage: response.data.currentPage || parseInt(page),
+            hasNextPage: (response.data.currentPage || parseInt(page)) < (response.data.totalPages || 1),
+            hasPreviousPage: (response.data.currentPage || parseInt(page)) > 1
           },
           filters: {
             status,
@@ -161,10 +284,16 @@ class ElockApiService {
             ieCodeNo,
             search
           },
-          message: `Found ${transformedData.length} assignments`
+          summary: {
+            totalAssignments: response.data.totalJobs || 0,
+            assignedCount: transformedData.filter(item => item.elock_assign_status === 'ASSIGNED').length,
+            unassignedCount: transformedData.filter(item => item.elock_assign_status === 'UNASSIGNED').length,
+            returnedCount: transformedData.filter(item => item.elock_assign_status === 'RETURNED').length
+          },
+          message: `Found ${transformedData.length} assignments with complete details`
         };
 
-        console.log('✅ Backend: Sending transformed response');
+        console.log('✅ Backend: Sending comprehensive transformed response');
         return result;
       }
 
@@ -177,13 +306,21 @@ class ElockApiService {
           limit: parseInt(limit),
           totalCount: 0,
           totalPages: 1,
-          currentPage: parseInt(page)
+          currentPage: parseInt(page),
+          hasNextPage: false,
+          hasPreviousPage: false
         },
         filters: {
           status,
           filterType,
           ieCodeNo,
           search
+        },
+        summary: {
+          totalAssignments: 0,
+          assignedCount: 0,
+          unassignedCount: 0,
+          returnedCount: 0
         },
         message: 'No assignments found'
       };
@@ -203,7 +340,9 @@ class ElockApiService {
           limit: parseInt(queryParams.limit) || 100,
           totalCount: 0,
           totalPages: 1,
-          currentPage: parseInt(queryParams.page) || 1
+          currentPage: parseInt(queryParams.page) || 1,
+          hasNextPage: false,
+          hasPreviousPage: false
         },
         filters: {
           status: queryParams.status || '',
@@ -211,10 +350,56 @@ class ElockApiService {
           ieCodeNo: queryParams.ieCodeNo || '',
           search: queryParams.search || ''
         },
+        summary: {
+          totalAssignments: 0,
+          assignedCount: 0,
+          unassignedCount: 0,
+          returnedCount: 0
+        },
         message: 'Failed to fetch assignments'
       };
 
       return errorResult;
+    }
+  }
+
+  /**
+   * Get detailed assignment by ID
+   */
+  async getAssignmentById(assignmentId) {
+    try {
+      console.log('🔍 Backend: Getting assignment details for ID:', assignmentId);
+      
+      // You can implement specific endpoint for single assignment
+      // For now, we'll get all and filter by ID
+      const allAssignments = await this.getElockAssignments({ limit: 1000 });
+      
+      if (allAssignments.success) {
+        const assignment = allAssignments.data.find(item => item._id === assignmentId);
+        
+        if (assignment) {
+          return {
+            success: true,
+            data: assignment,
+            message: 'Assignment details retrieved successfully'
+          };
+        } else {
+          return {
+            success: false,
+            error: 'Assignment not found',
+            message: 'Assignment with the specified ID was not found'
+          };
+        }
+      }
+      
+      return allAssignments;
+    } catch (error) {
+      console.error('❌ Backend: Error in getAssignmentById:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to get assignment details'
+      };
     }
   }
 

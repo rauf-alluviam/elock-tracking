@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Unlock, RefreshCw, Search, AlertCircle, CheckCircle, User } from 'lucide-react';
+import { MapPin, Unlock, RefreshCw, Search, AlertCircle, CheckCircle, User, Phone, PhoneOff } from 'lucide-react';
 import { apiService, api } from '../services/api';
 import MapModal from './MapModal';
 import Toast from './Toast';
@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [filterType, setFilterType] = useState('');
   const [userData, setUserData] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [clientCallStates, setClientCallStates] = useState({});
 
   const itemsPerPage = 10;
 
@@ -71,28 +72,20 @@ const Dashboard = () => {
       const response = await apiService.getElockAssignments(params);
       
       if (response.success) {
-        // Handle different response structures
-        let assignmentData = [];
-        let total = 0;
+        console.log('✅ Assignments fetched:', response.data.length, 'containers');
+        console.log('📈 Total count:', response.pagination?.totalCount || response.data.length);
         
-        if (Array.isArray(response.data)) {
-          assignmentData = response.data;
-          total = response.total || response.data.length;
-        } else if (response.data && Array.isArray(response.data.data)) {
-          assignmentData = response.data.data;
-          total = response.data.total || response.data.data.length;
-        } else if (response.data && response.data.assignments) {
-          assignmentData = response.data.assignments;
-          total = response.data.total || response.data.assignments.length;
-        }
+        setAssignments(response.data);
+        setTotalCount(response.pagination?.totalCount || response.data.length);
         
-        console.log('✅ Assignments fetched:', assignmentData.length, 'containers');
-        console.log('📈 Total count:', total);
+        // Initialize client call states
+        const initialCallStates = {};
+        response.data.forEach(assignment => {
+          initialCallStates[assignment.id || assignment._id] = assignment.client_call_enabled || false;
+        });
+        setClientCallStates(initialCallStates);
         
-        setAssignments(assignmentData);
-        setTotalCount(total);
-        
-        if (assignmentData.length === 0) {
+        if (response.data.length === 0) {
           showToast('No container assignments found', 'info');
         }
       } else {
@@ -177,6 +170,31 @@ const Dashboard = () => {
     }
   };
 
+  const handleClientCallToggle = async (assignmentId) => {
+    try {
+      const currentState = clientCallStates[assignmentId] || false;
+      const newState = !currentState;
+      
+      // Optimistically update the UI
+      setClientCallStates(prev => ({
+        ...prev,
+        [assignmentId]: newState
+      }));
+      
+      // Here you would typically make an API call to update the server
+      // await apiService.updateClientCall(assignmentId, newState);
+      
+      showToast(`Client call ${newState ? 'enabled' : 'disabled'}`, 'success');
+    } catch (error) {
+      // Revert the change if API call fails
+      setClientCallStates(prev => ({
+        ...prev,
+        [assignmentId]: !prev[assignmentId]
+      }));
+      showToast('Failed to update client call setting', 'error');
+    }
+  };
+
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 5000);
@@ -200,6 +218,23 @@ const Dashboard = () => {
   const formatFieldValue = (value) => {
     if (!value || value === 'null' || value === 'undefined') return 'N/A';
     return value;
+  };
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'assigned':
+        return 'bg-green-100 text-green-800';
+      case 'unassigned':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'returned':
+        return 'bg-blue-100 text-blue-800';
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'inactive':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
@@ -263,19 +298,19 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6 max-w-full">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search Input */}
-            <div className="relative md:col-span-2">
+            <div className="relative md:col-span-2 w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
                 placeholder="Search by container number, consignor, consignee..."
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full min-w-[350px] pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
             
@@ -309,7 +344,7 @@ const Dashboard = () => {
         </div>
 
         {/* Assignments Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden max-w-full">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <div>
@@ -332,112 +367,143 @@ const Dashboard = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Container Info
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Parties
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Weight & Seal
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Route
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">LR No</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Consignor</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Consignee</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Container No</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Vehicle No</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Driver Info</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">E-Lock Details</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Client Call</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Pickup Location</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Delivery Location</th>
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {assignments.map((assignment, index) => (
                   <tr key={assignment.id || assignment._id || index} className="hover:bg-gray-50">
+                    {/* LR NO*/}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                        {formatFieldValue(assignment.tr_no)}
+                      </div>
+                    </td>
+                    {/* Consignor */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                        {formatFieldValue(assignment.consignor_name)}
+                      </div>
+                    </td>
+                    {/* Consignee */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                        {formatFieldValue(assignment.consignee_name)}
+                      </div>
+                    </td>
+                    {/* Container No */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatFieldValue(assignment.container_no)}
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatFieldValue(assignment.container_no)}
+                      </div>
+                    </td>
+                    {/* Vehicle No */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatFieldValue(assignment.vehicle_no)}
+                      </div>
+                    </td>
+                    {/* Driver Info */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">
+                          {formatFieldValue(assignment.driver_name)}
                         </div>
-                        <div className="text-sm text-gray-500 max-w-xs truncate">
-                          {formatFieldValue(assignment.container_details)}
+                        <div className="text-gray-500">
+                          {formatFieldValue(assignment.driver_phone)}
                         </div>
-                        {assignment.f_asset_id && (
-                          <div className="text-xs text-blue-600 mt-1">
-                            Asset ID: {assignment.f_asset_id}
-                          </div>
+                      </div>
+                    </td>
+                    {/* E-Lock Details */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">
+                          {formatFieldValue(assignment.elock_no || assignment.f_asset_id)}
+                        </div>
+                        <div>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.elock_status)}`}>
+                            {formatFieldValue(assignment.elock_status)}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Client Call Toggle */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleClientCallToggle(assignment.id || assignment._id)}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          clientCallStates[assignment.id || assignment._id]
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        }`}
+                      >
+                        {clientCallStates[assignment.id || assignment._id] ? (
+                          <Phone className="h-3 w-3 mr-1" />
+                        ) : (
+                          <PhoneOff className="h-3 w-3 mr-1" />
                         )}
-                      </div>
+                        {clientCallStates[assignment.id || assignment._id] ? 'Enabled' : 'Disabled'}
+                      </button>
                     </td>
+                    {/* Pickup Location */}
                     <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="mb-2">
-                          <span className="text-xs font-medium text-gray-500">CONSIGNOR:</span>
-                          <div className="text-gray-900">{formatFieldValue(assignment.consignor_name)}</div>
+                      <div className="text-sm max-w-xs">
+                        <div className="font-medium text-gray-900 truncate">
+                          {formatFieldValue(assignment.pickup_location_address)}
                         </div>
-                        <div>
-                          <span className="text-xs font-medium text-gray-500">CONSIGNEE:</span>
-                          <div className="text-gray-900">{formatFieldValue(assignment.consignee_name)}</div>
-                        </div>
+              
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        <div className="text-gray-900 font-medium">
-                          {formatFieldValue(assignment.total_weight)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          <span className="text-xs font-medium">SEAL:</span> {formatFieldValue(assignment.seal_no)}
-                        </div>
-                      </div>
-                    </td>
+                    {/* Delivery Location */}
                     <td className="px-6 py-4">
-                      <div className="text-sm space-y-2">
-                        <div>
-                          <span className="text-xs font-medium text-green-600">PICKUP:</span>
-                          <div className="text-gray-900 text-xs max-w-xs truncate">
-                            {formatFieldValue(assignment.pickup_location_address)}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-xs font-medium text-red-600">DELIVERY:</span>
-                          <div className="text-gray-900 text-xs max-w-xs truncate">
-                            {formatFieldValue(assignment.delivery_location_address)}
-                          </div>
-                        </div>
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                        {formatFieldValue(assignment.delivery_location_address)}
                       </div>
                     </td>
+                    {/* Actions */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col space-y-2">
+                      <div className="flex flex-col space-y-1">
                         <button
-                          onClick={() => handleViewLocation(assignment.f_asset_id, assignment.container_no)}
-                          disabled={!assignment.f_asset_id || loadingStates[`location_${assignment.f_asset_id}`]}
-                          className={`inline-flex items-center justify-center px-3 py-1 border text-xs rounded-md transition-colors ${
-                            !assignment.f_asset_id 
+                          onClick={() => handleViewLocation(assignment.f_asset_id || assignment.elock_no, assignment.container_no)}
+                          disabled={!(assignment.f_asset_id || assignment.elock_no) || loadingStates[`location_${assignment.f_asset_id || assignment.elock_no}`]}
+                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                            !(assignment.f_asset_id || assignment.elock_no)
                               ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
                               : 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
                           }`}
                         >
-                          {loadingStates[`location_${assignment.f_asset_id}`] ? (
+                          {loadingStates[`location_${assignment.f_asset_id || assignment.elock_no}`] ? (
                             <RefreshCw className="h-3 w-3 animate-spin mr-1" />
                           ) : (
                             <MapPin className="h-3 w-3 mr-1" />
                           )}
-                          GPS Location
+                          Location
                         </button>
                         <button
-                          onClick={() => handleUnlockDevice(assignment.f_asset_id, assignment.container_no)}
-                          disabled={!assignment.f_asset_id || loadingStates[`unlock_${assignment.f_asset_id}`]}
-                          className={`inline-flex items-center justify-center px-3 py-1 border text-xs rounded-md transition-colors ${
-                            !assignment.f_asset_id 
+                          onClick={() => handleUnlockDevice(assignment.f_asset_id || assignment.elock_no, assignment.container_no)}
+                          disabled={!(assignment.f_asset_id || assignment.elock_no) || loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`]}
+                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                            !(assignment.f_asset_id || assignment.elock_no)
                               ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
                               : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
                           }`}
                         >
-                          {loadingStates[`unlock_${assignment.f_asset_id}`] ? (
+                          {loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`] ? (
                             <RefreshCw className="h-3 w-3 animate-spin mr-1" />
                           ) : (
                             <Unlock className="h-3 w-3 mr-1" />
                           )}
-                          Unlock E-Lock
+                          Unlock
                         </button>
                       </div>
                     </td>
