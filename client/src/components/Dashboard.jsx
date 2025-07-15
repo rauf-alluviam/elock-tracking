@@ -486,17 +486,19 @@ const Dashboard = () => {
                       </button>
                     </td>
                     {/* Pickup Location */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm max-w-xs">
-                        <div className="font-medium text-gray-900 truncate">
-                          {formatFieldValue(assignment.pickup_location_address)}
-                        </div>
-              
-                      </div>
-                    </td>
+                  <td className="px-6 py-4">
+  <div className="text-sm max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl">
+    <div
+      className="font-medium text-gray-900 break"
+      title={assignment.pickup_location_address}
+    >
+      {formatFieldValue(assignment.pickup_location_address)}
+    </div>
+  </div>
+</td>
                     {/* Delivery Location */}
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                      <div className="text-sm font-medium text-gray-900 max-w-xs">
                         {formatFieldValue(assignment.delivery_location_address)}
                       </div>
                     </td>
