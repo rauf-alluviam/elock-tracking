@@ -66,7 +66,7 @@ if (process.env.JWT_SECRET) {
 console.log('\n');
 
 // Ports to try
-const ports = [5003, 3005];
+const ports = [5004, 3005];
 
 async function testVerifyTokenEndpoint() {
   print.header('TESTING /api/auth/verify-token ENDPOINT');

@@ -67,7 +67,7 @@ fi
 print_success "Token generated: ${TEST_TOKEN:0:20}..."
 
 # Test ports to try
-PORTS=(5003 3005)
+PORTS=(5004 3005)
 
 print_header "TESTING /api/auth/verify-token ENDPOINT"
 

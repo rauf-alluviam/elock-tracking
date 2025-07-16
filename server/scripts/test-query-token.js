@@ -59,7 +59,7 @@ async function testQueryParameterToken() {
   
   // Test URLs
   const urls = [
-    `http://localhost:5003/api/elock/assignments?token=${token}`,
+    `http://localhost:5004/api/elock/assignments?token=${token}`,
     `http://localhost:3005/api/elock/assignments?token=${token}`
   ];
   
@@ -94,7 +94,7 @@ async function testMeEndpoint() {
   
   // Test URLs
   const urls = [
-    `http://localhost:5003/api/auth/me?token=${token}`,
+    `http://localhost:5004/api/auth/me?token=${token}`,
     `http://localhost:3005/api/auth/me?token=${token}`
   ];
   
@@ -136,7 +136,7 @@ async function runTests() {
     // Generate a URL for direct browser testing
     const token = generateTestToken();
     print.header('TEST LINKS FOR BROWSER');
-    console.log(`Direct API access: http://localhost:5003/api/auth/me?token=${token}`);
+    console.log(`Direct API access: http://localhost:5004/api/auth/me?token=${token}`);
     console.log(`Client app with token: http://localhost:3005/?token=${token}`);
     
   } catch (error) {

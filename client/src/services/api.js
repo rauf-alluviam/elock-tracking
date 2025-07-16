@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5003/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://15.207.11.214:5004/api';
 
 // Create axios instance
 const api = axios.create({
@@ -120,7 +120,7 @@ export const apiService = {
         
         // Add a small delay to ensure logs are visible
         setTimeout(() => {
-          window.location.href = 'http://localhost:3001/login';
+          window.location.href = 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login';
         }, 1000);
       }
       

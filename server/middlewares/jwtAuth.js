@@ -39,7 +39,7 @@ export const verifyToken = (req, res, next) => {
         return res.status(401).json({
           success: false,
           error: 'Authentication token is required',
-          redirect: process.env.LOGIN_REDIRECT_URL || 'http://localhost:3001/login',
+          redirect: process.env.LOGIN_REDIRECT_URL || 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login',
           message: 'No authentication token found'
         });
       } else {
@@ -92,7 +92,7 @@ export const verifyToken = (req, res, next) => {
         error: 'Token has expired',
         errorType: 'expired',
         message: 'Your session has expired. Please login again.',
-        redirect: process.env.LOGIN_REDIRECT_URL || 'http://localhost:3001/login'
+        redirect: process.env.LOGIN_REDIRECT_URL || 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login'
       });
     } else if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
@@ -100,7 +100,7 @@ export const verifyToken = (req, res, next) => {
         error: 'Invalid token signature',
         errorType: 'invalid',
         message: 'Authentication failed: ' + error.message,
-        redirect: process.env.LOGIN_REDIRECT_URL || 'http://localhost:3001/login'
+        redirect: process.env.LOGIN_REDIRECT_URL || 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login'
       });
     } else {
       return res.status(401).json({
@@ -108,7 +108,7 @@ export const verifyToken = (req, res, next) => {
         error: 'Authentication error: ' + error.message,
         errorType: 'unknown',
         message: 'An unexpected authentication error occurred',
-        redirect: process.env.LOGIN_REDIRECT_URL || 'http://localhost:3001/login'
+        redirect: process.env.LOGIN_REDIRECT_URL || 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login'
       });
     }
   }

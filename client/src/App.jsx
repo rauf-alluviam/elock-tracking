@@ -80,7 +80,7 @@ function App() {
   // Handle manual login redirect
   const handleLoginRedirect = () => {
     console.log('🔄 Redirecting to login page...');
-    window.location.href = 'http://localhost:3001/login';
+    window.location.href = 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login';
   };
 
   // Loading state

@@ -13,7 +13,7 @@ import verifyToken from './middlewares/jwtAuth.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5003;
+const PORT = process.env.PORT || 5004;
 
 // Connect to MongoDB
 connectDB();
@@ -34,7 +34,10 @@ origin: [
   'http://localhost:9001',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
-  'http://13.201.247.240:9005', // <-- Only the host, not the full API path
+  'http://13.201.247.240:9005',
+  'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com',
+  'http://15.207.11.214:5004', 
+  'http://elock-tracking.s3-website.ap-south-1.amazonaws.com',
   process.env.CLIENT_URL,
   process.env.ADDITIONAL_CLIENT_URL
 ].filter(Boolean),// Remove undefined/null entries

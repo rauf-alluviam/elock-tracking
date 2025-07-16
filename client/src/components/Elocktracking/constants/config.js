@@ -15,7 +15,7 @@ export const API_CONFIG = {
   TOKEN_ID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
   ADMIN_API_URL: "http://icloud.assetscontrols.com:8092/OpenApi/Admin",
   LBS_API_URL: "http://icloud.assetscontrols.com:8092/OpenApi/LBS",
-  SERVER_URL: process.env.VITE_API_BASE_URL || "http://localhost:9005",
+  SERVER_URL: process.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api",
 };
 
 // Socket Configuration

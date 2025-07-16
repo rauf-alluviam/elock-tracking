@@ -505,22 +505,7 @@ const Dashboard = () => {
                     {/* Actions */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col space-y-1">
-                        <button
-                          onClick={() => handleViewLocation(assignment.f_asset_id || assignment.elock_no, assignment.container_no)}
-                          disabled={!(assignment.f_asset_id || assignment.elock_no) || loadingStates[`location_${assignment.f_asset_id || assignment.elock_no}`]}
-                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                            !(assignment.f_asset_id || assignment.elock_no)
-                              ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
-                              : 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
-                          }`}
-                        >
-                          {loadingStates[`location_${assignment.f_asset_id || assignment.elock_no}`] ? (
-                            <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                          ) : (
-                            <MapPin className="h-3 w-3 mr-1" />
-                          )}
-                          Location
-                        </button>
+                          
                         <button
                           onClick={() => handleUnlockDevice(assignment.f_asset_id || assignment.elock_no, assignment.container_no)}
                           disabled={!(assignment.f_asset_id || assignment.elock_no) || loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`]}
