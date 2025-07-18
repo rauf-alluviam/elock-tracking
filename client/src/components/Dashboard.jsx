@@ -397,6 +397,7 @@ const Dashboard = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">LR No</th>
                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Consignor</th>
                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Consignee</th>
@@ -407,12 +408,47 @@ const Dashboard = () => {
                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Client Call</th>
                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Pickup Location</th>
                   <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Delivery Location</th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Actions</th>
+                 
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {assignments.map((assignment, index) => (
                   <tr key={assignment.id || assignment._id || index} className="hover:bg-gray-50">
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col space-y-1">
+                          
+                        <button
+                          onClick={() => handleUnlockDevice(assignment.f_asset_id || assignment.elock_no, assignment.container_no)}
+                          disabled={!(assignment.f_asset_id || assignment.elock_no) || loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`]}
+                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                            !(assignment.f_asset_id || assignment.elock_no)
+                              ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
+                              : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
+                          }`}
+                        >
+                          {loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`] ? (
+                            <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <Unlock className="h-3 w-3 mr-1" />
+                          )}
+                          Unlock
+                        </button>
+                        <button
+                          onClick={() => navigate(`/elock/${assignment.f_asset_id || assignment.elock_no}`)}
+                          disabled={!(assignment.f_asset_id || assignment.elock_no)}
+                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                            !(assignment.f_asset_id || assignment.elock_no)
+                              ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
+                              : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                          }`}
+                        >
+                          <MapPin className="h-3 w-3 mr-1" />
+                          Track
+                        </button>
+                      </div>
+                    </td>
                     {/* LR NO*/}
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
@@ -502,40 +538,7 @@ const Dashboard = () => {
                         {formatFieldValue(assignment.delivery_location_address)}
                       </div>
                     </td>
-                    {/* Actions */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col space-y-1">
-                          
-                        <button
-                          onClick={() => handleUnlockDevice(assignment.f_asset_id || assignment.elock_no, assignment.container_no)}
-                          disabled={!(assignment.f_asset_id || assignment.elock_no) || loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`]}
-                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                            !(assignment.f_asset_id || assignment.elock_no)
-                              ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
-                              : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100'
-                          }`}
-                        >
-                          {loadingStates[`unlock_${assignment.f_asset_id || assignment.elock_no}`] ? (
-                            <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                          ) : (
-                            <Unlock className="h-3 w-3 mr-1" />
-                          )}
-                          Unlock
-                        </button>
-                        <button
-                          onClick={() => navigate(`/elock/${assignment.f_asset_id || assignment.elock_no}`)}
-                          disabled={!(assignment.f_asset_id || assignment.elock_no)}
-                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                            !(assignment.f_asset_id || assignment.elock_no)
-                              ? 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
-                              : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                          }`}
-                        >
-                          <MapPin className="h-3 w-3 mr-1" />
-                          Track
-                        </button>
-                      </div>
-                    </td>
+                    
                   </tr>
                 ))}
               </tbody>

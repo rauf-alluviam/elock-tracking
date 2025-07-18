@@ -334,7 +334,7 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
   const LBS_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/LBS";
   const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
-
+// const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5004/api";
   // Real-time tracking functions
   const connectToRealTimeTracking = useCallback(() => {
     if (socketRef.current || !elockNo) {
