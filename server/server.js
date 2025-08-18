@@ -1,4 +1,6 @@
 import express from 'express';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
@@ -14,6 +16,27 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5004;
+const server = http.createServer(app);
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: [
+      'http://localhost:3005',
+      'http://localhost:5173',
+      'http://localhost:3001',
+      'http://localhost:9001',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+      'http://13.201.247.240:9005',
+      'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com',
+      'http://15.207.11.214:5004',
+      'http://elock-tracking.s3-website.ap-south-1.amazonaws.com',
+      'http://icloud.assetscontrols.com:8092/OpenApi/LBS',
+      process.env.CLIENT_URL,
+      process.env.ADDITIONAL_CLIENT_URL
+    ].filter(Boolean),
+    credentials: true
+  }
+});
 
 // Connect to MongoDB
 connectDB();
@@ -38,6 +61,8 @@ origin: [
   'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com',
   'http://15.207.11.214:5004', 
   'http://elock-tracking.s3-website.ap-south-1.amazonaws.com',
+  'http://icloud.assetscontrols.com:8092/OpenApi/LBS',
+  'http://13.201.247.240:9005/socket.io/?deviceId=8294630573&EIO=4&transport=polling&t=x0995qro&b64=1',
   process.env.CLIENT_URL,
   process.env.ADDITIONAL_CLIENT_URL
 ].filter(Boolean),// Remove undefined/null entries
@@ -132,10 +157,29 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  console.log('Socket.IO client connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Socket.IO client disconnected:', socket.id);
+  });
+  // You can add more event handlers here
+});
+
+  // Add support for '/elock' namespace
+  const elockNamespace = io.of('/elock');
+  elockNamespace.on('connection', (socket) => {
+    console.log('Elock namespace client connected:', socket.id);
+    socket.on('disconnect', () => {
+      console.log('Elock namespace client disconnected:', socket.id);
+    });
+    // Add custom event handlers for /elock namespace here
+  });
 
 // Fixed unlock URL to use icloud.assetscontrols.com
 // Updated unlock functionality to use correct iCloud API

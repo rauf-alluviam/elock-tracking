@@ -297,6 +297,7 @@ const getTimeRange = (
   };
 };
 
+const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
 const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   // Inject CSS for advanced animations
   useEffect(() => {
@@ -309,6 +310,7 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   const [loading, setLoading] = useState(false);
   const [assetData, setAssetData] = useState(null);
   const [locationData, setLocationData] = useState(null);
+  const [assignmentData, setAssignmentData] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("6h");
@@ -325,6 +327,74 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false);
   const [realTimeUpdates, setRealTimeUpdates] = useState([]);
 
+    // Function to fetch assignment data and store in assignmentData state
+    const fetchAssignmentData = useCallback(async () => {
+      if (!elockNo) return;
+      try {
+        const token = localStorage.getItem('exim_sso_token') || 
+                      localStorage.getItem('jwt_token') || 
+                      sessionStorage.getItem('jwt_token');
+        if (!token) {
+          setError('No authentication token found');
+          return;
+        }
+        const headers = {
+          'Authorization': `Bearer ${token.trim()}`,
+          'Content-Type': 'application/json'
+        };
+        const assignmentResponse = await fetch(
+          `${SERVER_URL}/elock/assignments?limit=1&elock_no=${elockNo}`,
+          { headers }
+        );
+        const assignmentResult = await assignmentResponse.json();
+        if (assignmentResult.success && assignmentResult.data && assignmentResult.data.length > 0) {
+          setAssignmentData(assignmentResult.data[0]);
+        } else {
+          setAssignmentData(null);
+        }
+      } catch (err) {
+        setError('Failed to fetch assignment data');
+        setAssignmentData(null);
+      }
+    }, [elockNo, SERVER_URL]);
+
+    // Fetch assignment data whenever elockNo changes
+    useEffect(() => {
+      fetchAssignmentData();
+    }, [elockNo, fetchAssignmentData]);
+
+    // --- Socket.IO client for /elock namespace ---
+    useEffect(() => {
+      // Dynamically import socket.io-client to avoid SSR issues
+      let isMounted = true;
+      import('socket.io-client').then(({ io }) => {
+        const socket = io('http://localhost:5004/elock', {
+          transports: ['websocket', 'polling'],
+          // Add auth/options if needed
+        });
+        socketRef.current = socket;
+        socket.on('connect', () => {
+          if (isMounted) setIsRealTimeConnected(true);
+          console.log('Connected to /elock namespace:', socket.id);
+        });
+        socket.on('disconnect', () => {
+          if (isMounted) setIsRealTimeConnected(false);
+          console.log('Disconnected from /elock namespace');
+        });
+        // Example: listen for real-time updates
+        socket.on('realTimeUpdate', (data) => {
+          if (isMounted) setRealTimeUpdates((prev) => [...prev, data]);
+        });
+      });
+      return () => {
+        isMounted = false;
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+      };
+    }, []);
+
   // Use refs to prevent excessive API calls
   const timeRangeRef = useRef(timeRange);
   const historyFetchedRef = useRef(false);
@@ -333,9 +403,9 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
   const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
   const LBS_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/LBS";
-  const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
+  // const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
 
-// const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5004/api";
+
   // Real-time tracking functions
   const connectToRealTimeTracking = useCallback(() => {
     if (socketRef.current || !elockNo) {
@@ -552,7 +622,7 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
       console.error("❌ WebSocket error:", error);
       setError(`Real-time tracking error: ${error.message}`);
     });
-  }, [elockNo, SERVER_URL]);
+  }, [elockNo]);
 
   const disconnectFromRealTimeTracking = useCallback(() => {
     if (socketRef.current) {
@@ -571,22 +641,9 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   // Handle tab change with enhanced animations
   const handleTabChange = (event, newValue) => {
     setCurrentTab(newValue);
-
-    if (newValue === 1) {
-      // Real-time tab - connect and start animations
-      connectToRealTimeTracking();
-
-      // Add visual feedback for tab switch
-      setTimeout(() => {
-        const tabPanel = document.querySelector('[role="tabpanel"]');
-        if (tabPanel) {
-          tabPanel.classList.add("fade-in-up-animation");
-        }
-      }, 100);
-    } else {
-      // Disconnect when leaving real-time tab
-      disconnectFromRealTimeTracking();
-    }
+    // Do not disconnect real-time tracking on tab switch
+    // Only handle tab-specific logic here
+    // ...existing code for real-time tab if needed...
   };
 
   // Custom truck icon for the map
@@ -648,6 +705,7 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
       fetchHistoryData();
     }
   }, [assetData?.FGUID, fetchHistoryData]);
+
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -820,7 +878,7 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
       setLoading(false);
     }
   }, [elockNo]);
-
+  console.log("LOCATION DATA", locationData);
   useEffect(() => {
     if (isOpen && elockNo) {
       fetchAssetData();
@@ -1242,17 +1300,19 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
                               color="text.secondary"
                               sx={{ fontWeight: "500" }}
                             >
-                              Vehicle Name
+                              Vehicle Number
                             </Typography>
                           </Stack>
                           <Typography
                             variant="h6"
                             sx={{ color: "warning.main", fontWeight: "bold" }}
                           >
-                            {assetData.FVehicleName}
+                            {assignmentData?.vehicle_no || "N/A"}
                           </Typography>
                         </Box>
                       </Grid>
+
+                           
 
                       <Grid item xs={6} md={3}>
                         <Box
