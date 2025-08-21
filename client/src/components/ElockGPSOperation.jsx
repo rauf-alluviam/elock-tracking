@@ -273,7 +273,7 @@ const timeRangeOptions = [
   { value: "1m", label: "1 Month", hours: 720 },
   { value: "custom", label: "Custom Range", hours: 0 },
 ];
-
+const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
 const getTimeRange = (
   selectedRange,
   customStartTime = null,
@@ -297,7 +297,7 @@ const getTimeRange = (
   };
 };
 
-const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
+
 const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   // Inject CSS for advanced animations
   useEffect(() => {
@@ -408,7 +408,7 @@ const ElockGPSOperation = ({ isOpen, onClose, elockNo }) => {
   const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
   const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
   const LBS_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/LBS";
-  const SERVER_URL = import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
+
 
 
   // Real-time tracking functions
