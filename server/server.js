@@ -26,7 +26,7 @@ const io = new SocketIOServer(server, {
       'http://localhost:9001',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
-      'http://13.201.247.240:9005',
+      'http://3.108.244.38:9005',
       'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com',
       'http://15.207.11.214:5004',
       'http://elock-tracking.s3-website.ap-south-1.amazonaws.com',
@@ -57,12 +57,12 @@ origin: [
   'http://localhost:9001',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
-  'http://13.201.247.240:9005',
+  'http://3.108.244.38:9005',
   'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com',
   'http://15.207.11.214:5004', 
   'http://elock-tracking.s3-website.ap-south-1.amazonaws.com',
   'http://icloud.assetscontrols.com:8092/OpenApi/LBS',
-  'http://13.201.247.240:9005/socket.io/?deviceId=8294630573&EIO=4&transport=polling&t=x0995qro&b64=1',
+  'http://3.108.244.38:9005/socket.io/?deviceId=8294630573&EIO=4&transport=polling&t=x0995qro&b64=1',
   process.env.CLIENT_URL,
   process.env.ADDITIONAL_CLIENT_URL
 ].filter(Boolean),// Remove undefined/null entries
@@ -82,7 +82,7 @@ app.get('/api/proxy/client-elock-assign', async (req, res) => {
     const { page, limit, ieCodeNo } = req.query;
     
     // Make request to external API
-    const response = await axios.get('http://13.201.247.240:9005/api/client-elock-assign', {
+    const response = await axios.get('http://3.108.244.38:9005/api/client-elock-assign', {
       params: { page, limit, ieCodeNo },
       timeout: 10000, // 10 second timeout
       headers: {
