@@ -6,6 +6,8 @@ import Toast from './Toast';
 import LoadingSpinner from './LoadingSpinner';
 import { useNavigate } from 'react-router-dom';
 
+import { ArrowLeft } from 'lucide-react';
+
 const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
 const INSTRUCTION_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Instruction";
 const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
@@ -39,6 +41,22 @@ const Dashboard = () => {
       fetchAssignments();
     }
   }, [currentPage, searchTerm, statusFilter, filterType, userData]);
+
+
+function BackButton() {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+       onClick={() => window.location.href = "http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/"}
+      aria-label="Go back"
+    >
+      {/* You can use an icon e.g. ArrowLeft for a more Windows-feel */}
+      <ArrowLeft className="h-6 w-6 mr-2" />
+    </button>
+  );
+}
+
 
   const fetchUserData = async () => {
     try {
@@ -282,51 +300,64 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">E-Lock Tracking System</h1>
-              <p className="text-gray-600 mt-1">Monitor and control electronic locks in real-time</p>
-              {userData && (
-                <div className="flex items-center mt-2 text-sm text-blue-600">
-                  <User className="h-4 w-4 mr-1" />
-                  <span>IE Code: {userData.ieCodeNo}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
-                serviceStatus?.overall 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {serviceStatus?.overall ? (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Service Online</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Service Offline</span>
-                  </>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  fetchAssignments();
-                  checkServiceStatus();
-                }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </button>
-            </div>
-          </div>
+<div className="flex justify-between items-center py-6">
+  {/* Left: Back button flush left, then title/text */}
+<div className="flex flex-col items-start ml-10">
+  {/* Top row: Back button + h1 title */}
+  <div className="flex items-center">
+    <BackButton />
+    <h1 className="text-3xl font-bold text-gray-900 ml-2">
+      E-Lock Tracking System
+    </h1>
+  </div>
+  {/* Subtitle */}
+  <p className="text-gray-600 mt-1 ml-8">
+    Monitor and control electronic locks in real-time
+  </p>
+  {/* IE Code row */}
+  {userData && (
+    <div className="flex items-center mt-2 text-sm text-blue-600">
+      <User className="h-4 w-4 mr-1 ml-8" />
+      <span>IE Code: {userData.ieCodeNo}</span>
+    </div>
+  )}
+</div>
+
+
+
+      {/* Right group: Service status + Refresh */}
+      <div className="flex items-center mr-10 space-x-4">
+        <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
+          serviceStatus?.overall 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {serviceStatus?.overall ? (
+            <>
+              <CheckCircle className="h-4 w-4" />
+              <span>Service Online</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="h-4 w-4" />
+              <span>Service Offline</span>
+            </>
+          )}
         </div>
+        <button
+          onClick={() => {
+            fetchAssignments();
+            checkServiceStatus();
+          }}
+          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </button>
       </div>
+    </div>
+ 
+
 
       <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
