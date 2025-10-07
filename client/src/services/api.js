@@ -150,7 +150,7 @@ export const apiService = {
   // MAIN E-LOCK ASSIGNMENT ENDPOINT - Single optimized endpoint
   getElockAssignments: async ({ 
     page = 1, 
-    limit = 100, 
+    limit = '', 
     search = '', 
     status = '', 
     filterType = '', 
