@@ -139,11 +139,10 @@ class ElockApiService {
    * Applied comprehensive logic to include all available fields from the API response
    */
   async getElockAssignments(queryParams = {}) {
-    const limitNum = limit && !isNaN(parseInt(limit)) ? parseInt(limit) : 100;
     try {
       const {
         page = 1,
-        limit = limitNum,
+        limit = 100,
         search = "",
         status = "",
         filterType = "",
