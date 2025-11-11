@@ -9,6 +9,7 @@ import {
   User,
   Phone,
   PhoneOff,
+  ChevronDown,
 } from "lucide-react";
 import { apiService, api } from "../services/api";
 import MapModal from "./MapModal";
@@ -34,21 +35,22 @@ const Dashboard = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [toast, setToast] = useState(null);
   const [loadingStates, setLoadingStates] = useState({});
-  const [statusFilter, setStatusFilter] = useState("RETURNED");
+  const [statusFilter, setStatusFilter] = useState("");
   const [filterType, setFilterType] = useState("");
   const [userData, setUserData] = useState(null);
   const [totalCount, setTotalCount] = useState(0);
   const [clientCallStates, setClientCallStates] = useState({});
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-
-  // Removed static itemsPerPage from frontend
+  const [selectedIeCode, setSelectedIeCode] = useState("");
+  const [showIeCodeDropdown, setShowIeCodeDropdown] = useState(false);
 
   useEffect(() => {
     fetchUserData();
     checkServiceStatus();
   }, []);
 
+  // FIX: Add selectedIeCode to the dependency array
   useEffect(() => {
     if (userData) {
       fetchAssignments();
@@ -60,6 +62,7 @@ const Dashboard = () => {
     filterType,
     userData,
     itemsPerPage,
+    selectedIeCode, // Add this line - this will trigger refetch when IE code changes
   ]);
 
   function BackButton() {
@@ -84,7 +87,18 @@ const Dashboard = () => {
       if (response && response.success && response.user) {
         setUserData(response.user);
         console.log("✅ User data loaded:", response.user);
-        if (response.user.ieCodeNo) {
+
+        // Set default selected IE code to the first one
+        if (response.user.ieCodes && response.user.ieCodes.length > 0) {
+          setSelectedIeCode(response.user.ieCodes[0]);
+        }
+
+        if (response.user.ieCodes && response.user.ieCodes.length > 1) {
+          showToast(
+            `Authenticated with ${response.user.ieCodes.length} IE Codes`,
+            "success"
+          );
+        } else if (response.user.ieCodeNo) {
           showToast(
             `Authenticated with IE Code: ${response.user.ieCodeNo}`,
             "success"
@@ -107,12 +121,11 @@ const Dashboard = () => {
 
       const params = {
         page: currentPage,
-        // Removed limit param from frontend request
         limit: itemsPerPage,
         search: searchTerm,
         status: statusFilter,
         filterType: filterType,
-        ieCodeNo: userData?.ieCodeNo || "",
+        ieCodeNo: selectedIeCode || userData?.ieCodeNo || "", // Use selected IE code
       };
 
       console.log("📊 Request params:", params);
@@ -143,7 +156,12 @@ const Dashboard = () => {
         setClientCallStates(initialCallStates);
 
         if (response.data.length === 0) {
-          showToast("No container assignments found", "info");
+          showToast(
+            selectedIeCode
+              ? `No container assignments found for IE Code: ${selectedIeCode}`
+              : "No container assignments found",
+            "info"
+          );
         }
       } else {
         console.error("❌ API returned error:", response.error);
@@ -161,6 +179,57 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add IE Code selector to header
+  const renderIeCodeSelector = () => {
+    if (!userData?.ieCodes || userData.ieCodes.length <= 1) {
+      return null;
+    }
+
+    return (
+      <div className="relative ml-8">
+        <button
+          onClick={() => setShowIeCodeDropdown(!showIeCodeDropdown)}
+          className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+        >
+          <User className="h-4 w-4" />
+          <span className="text-sm font-medium">IE Code: {selectedIeCode}</span>
+          <ChevronDown className="h-4 w-4" />
+        </button>
+
+        {showIeCodeDropdown && (
+          <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+            <div className="p-2 max-h-60 overflow-y-auto">
+              {userData.ieCodes.map((ieCode, index) => (
+                <button
+                  key={ieCode}
+                  onClick={() => {
+                    setSelectedIeCode(ieCode);
+                    setShowIeCodeDropdown(false);
+                    setCurrentPage(1); // Reset to first page when changing IE code
+                    // FIX: No need to manually call fetchAssignments here
+                    // The useEffect will automatically trigger due to selectedIeCode change
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                    selectedIeCode === ieCode
+                      ? "bg-blue-100 text-blue-800"
+                      : "hover:bg-gray-100"
+                  }`}
+                >
+                  <div className="font-medium">{ieCode}</div>
+                  {userData.ieCodeAssignments?.[index]?.importer_name && (
+                    <div className="text-xs text-gray-600 truncate">
+                      {userData.ieCodeAssignments[index].importer_name}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const checkServiceStatus = async () => {
@@ -340,14 +409,19 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold text-gray-900 ml-2">
               E-Lock Tracking System
             </h1>
+            {renderIeCodeSelector()}
           </div>
           <p className="text-gray-600 mt-1 ml-8">
             Monitor and control electronic locks in real-time
           </p>
           {userData && (
-            <div className="flex items-center mt-2 text-sm text-blue-600">
-              <User className="h-4 w-4 mr-1 ml-8" />
-              <span>IE Code: {userData.ieCodeNo}</span>
+            <div className="flex items-center mt-2 text-sm text-blue-600 ml-8">
+              <User className="h-4 w-4 mr-1" />
+              <span>
+                {userData.ieCodes && userData.ieCodes.length > 1
+                  ? `${userData.ieCodes.length} IE Codes`
+                  : `IE Code: ${userData.ieCodeNo}`}
+              </span>
             </div>
           )}
         </div>
@@ -439,6 +513,7 @@ const Dashboard = () => {
                 <p className="text-sm text-gray-600">
                   {totalCount} total containers, showing {assignments.length} on
                   page {currentPage}
+                  {selectedIeCode && ` for IE Code: ${selectedIeCode}`}
                 </p>
               </div>
 
@@ -452,7 +527,7 @@ const Dashboard = () => {
                   }}
                   className="border border-gray-300 rounded px-2 py-1"
                 >
-                  <option value={2}>20</option>
+                  <option value={20}>20</option>
                   <option value={100}>100</option>
                   <option value={1000}>1000</option>
                 </select>
@@ -737,8 +812,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Removed static pagination below */}
-
         {assignments.length === 0 && !loading && (
           <div className="text-center py-12">
             <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
@@ -746,7 +819,9 @@ const Dashboard = () => {
               No assignments found
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Try adjusting your search criteria or filters.
+              {selectedIeCode
+                ? `No assignments found for IE Code: ${selectedIeCode}. Try selecting a different IE Code.`
+                : "Try adjusting your search criteria or filters."}
             </p>
           </div>
         )}

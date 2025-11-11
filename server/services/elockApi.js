@@ -10,6 +10,7 @@ class ElockApiService {
 
     // Third-party API configuration
     this.thirdPartyBaseURL = "http://3.108.244.38:9005/api";
+    // this.thirdPartyBaseURL = "http://43.205.59.159:9005/api";
   }
 
   /**
@@ -136,7 +137,7 @@ class ElockApiService {
 
   /**
    * Get E-Lock assignments with complete data mapping
-   * Applied comprehensive logic to include all available fields from the API response
+   * Now supports filtering by multiple IE codes
    */
   async getElockAssignments(queryParams = {}) {
     try {
@@ -160,10 +161,12 @@ class ElockApiService {
         limit: parseInt(limit),
       };
 
-      // Add optional parameters only if provided (except search which we'll use locally)
+      // Add optional parameters only if provided
       if (status) params.status = status;
-      if (ieCodeNo) params.ieCodeNo = ieCodeNo;
       if (filterType) params.filterType = filterType;
+
+      // Note: We don't send ieCodeNo to third-party API as we'll filter locally
+      // This allows us to handle multiple IE codes properly
 
       console.log("📡 Backend: Calling third-party API with params:", params);
 
@@ -181,9 +184,24 @@ class ElockApiService {
 
       console.log("✅ Backend: Third-party API response received");
 
-      const jobs = response.data?.jobs || [];
+      let jobs = response.data?.jobs || [];
 
-      // If search is provided, do local filtering on multiple fields for global search
+      // Apply IE code filtering if provided
+      if (ieCodeNo) {
+        console.log(`🔍 Backend: Filtering by IE Code: ${ieCodeNo}`);
+        jobs = jobs.filter((item) => {
+          // Check both consignor and consignee IE codes
+          const consignorIeCode = item.consignor?.ieCodeNo;
+          const consigneeIeCode = item.consignee?.ieCodeNo;
+
+          return consignorIeCode === ieCodeNo || consigneeIeCode === ieCodeNo;
+        });
+        console.log(
+          `✅ Backend: After IE code filtering: ${jobs.length} assignments`
+        );
+      }
+
+      // Apply search filtering if provided
       let filteredJobs = jobs;
       if (search) {
         const lowerSearch = search.toLowerCase();
@@ -202,11 +220,13 @@ class ElockApiService {
               item.consignor.name.toLowerCase().includes(lowerSearch)) ||
             (item.consignee?.name &&
               item.consignee.name.toLowerCase().includes(lowerSearch))
-          // add other fields as needed
+        );
+        console.log(
+          `✅ Backend: After search filtering: ${filteredJobs.length} assignments`
         );
       }
 
-      // Now transform the filtered data for response as before
+      // Transform the filtered data for response
       const transformedData = filteredJobs.map((item) => ({
         _id: item._id,
         tr_no: item.tr_no,
@@ -217,6 +237,7 @@ class ElockApiService {
         driver_phone: item.driver_phone,
         elock_no: item.elock_no,
         f_asset_id: item.elock_no,
+        elock_status: item.elock_assign_status,
         elock_assign_status: item.elock_assign_status,
         consignor: this.formatCompanyDetails(item.consignor),
         consignor_name: item.consignor?.name || "N/A",
@@ -301,7 +322,7 @@ class ElockApiService {
         }, {}),
       }));
 
-      const totalFilteredCount = filteredJobs.length;
+      const totalFilteredCount = transformedData.length;
 
       const result = {
         success: true,
@@ -333,7 +354,9 @@ class ElockApiService {
             (item) => item.elock_assign_status === "RETURNED"
           ).length,
         },
-        message: `Found ${totalFilteredCount} assignments matching search criteria`,
+        message: `Found ${totalFilteredCount} assignments${
+          ieCodeNo ? ` for IE Code: ${ieCodeNo}` : ""
+        }`,
       };
 
       console.log("✅ Backend: Sending filtered and transformed response");

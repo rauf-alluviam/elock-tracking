@@ -160,6 +160,22 @@ export const apiService = {
       const response = await api.post("/auth/verify-token", {
         token: token.trim(),
       });
+      
+      if (response.data.success) {
+        // Enhance user data with IE code information
+        const userData = response.data.user || response.data;
+        return {
+          success: true,
+          user: {
+            ...userData,
+            // Ensure ieCodes array exists for compatibility
+            ieCodes: userData.ie_codes || [userData.ie_code_no].filter(Boolean),
+            ieCodeAssignments: userData.ie_code_assignments || [],
+            // Backward compatibility
+            ieCodeNo: userData.ie_code_no || (userData.ie_codes && userData.ie_codes[0]) || ''
+          }
+        };
+      }
       return response.data;
     } catch (error) {
       console.error("Failed to fetch user data via verify-token:", error);
@@ -201,7 +217,7 @@ export const apiService = {
   // Asset location tracking
   getAssetLocation: async (assetId) => {
     try {
-      const response = await api.post("/elock/location", { assetId });
+      const response = await api.get(`/elock/location/${assetId}`);
       return response.data;
     } catch (error) {
       console.error("❌ Error fetching asset location:", error);
@@ -212,7 +228,7 @@ export const apiService = {
   // Device unlock
   unlockDevice: async (assetId) => {
     try {
-      const response = await api.post("/elock/unlock", { assetId });
+      const response = await api.post(`/elock/unlock/${assetId}`);
       return response.data;
     } catch (error) {
       console.error("❌ Error unlocking device:", error);
