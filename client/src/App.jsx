@@ -14,18 +14,18 @@ function App() {
     const processSsoAuthentication = async () => {
       try {
         setIsLoading(true);
-        console.log('🔍 Starting SSO authentication process...');
+      
         
         // Check if we have a token in the URL
         const urlToken = apiService.getTokenFromUrl();
-        console.log('🔎 URL token found:', urlToken ? 'Yes' : 'No');
+       
         
         if (urlToken) {
-          console.log('✅ Found token in URL, processing...');
+       
           // Save the URL token immediately
           apiService.saveToken(urlToken, true);
         } else {
-          console.log('⚠️ No token in URL, checking stored tokens...');
+         
           
           // Check for existing stored tokens
           const storedToken = localStorage.getItem('exim_sso_token') || 
@@ -33,19 +33,17 @@ function App() {
                              sessionStorage.getItem('jwt_token');
           
           if (!storedToken) {
-            console.log('❌ No stored token found, redirecting to login...');
+          
             throw new Error('No authentication token found');
           }
           
-          console.log('📦 Using stored token for authentication');
+
         }
         
         // Process the SSO token (verify with server)
-        console.log('⏳ Verifying token with server...');
         const result = await apiService.processSsoToken(false); // Don't auto-redirect
         
         if (result.success) {
-          console.log('✅ Authentication successful!');
           setIsAuthenticated(true);
           setAuthError(null);
         } else {
@@ -69,7 +67,6 @@ function App() {
         localStorage.removeItem('jwt_token');
         sessionStorage.removeItem('jwt_token');
       } finally {
-        console.log('🟦 Authentication process completed');
         setIsLoading(false);
       }
     };
@@ -79,7 +76,6 @@ function App() {
 
   // Handle manual login redirect
   const handleLoginRedirect = () => {
-    console.log('🔄 Redirecting to login page...');
     window.location.href = 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login';
   };
 

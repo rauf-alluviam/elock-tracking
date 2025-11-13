@@ -73,7 +73,6 @@ const Dashboard = () => {
       const response = await apiService.getUserData();
       if (response && response.success && response.user) {
         setUserData(response.user);
-        console.log("✅ User data loaded:", response.user);
 
         if (response.user.ieCodes && response.user.ieCodes.length > 0) {
           setSelectedIeCode(response.user.ieCodes[0]);
@@ -103,7 +102,6 @@ const Dashboard = () => {
   const fetchAssignments = async () => {
     try {
       setLoading(true);
-      console.log("🔄 Fetching assignments...");
 
       const params = {
         page: currentPage,
@@ -114,7 +112,6 @@ const Dashboard = () => {
         ieCodeNo: selectedIeCode || userData?.ieCodeNo || "",
       };
 
-      console.log("📊 Request params:", params);
 
       const response = await apiService.getElockAssignments(params);
 
@@ -124,10 +121,7 @@ const Dashboard = () => {
           response.data.length,
           "containers"
         );
-        console.log(
-          "📈 Total count:",
-          response.pagination?.totalCount || response.data.length
-        );
+        
 
         setAssignments(response.data);
         setTotalCount(response.pagination?.totalCount || response.data.length);
@@ -177,7 +171,6 @@ const Dashboard = () => {
     setSelectedElockNo(elockNo);
     setSelectedContainerData(containerData);
     setShowTrackingMap(true);
-    console.log(`📍 Opening TrackingMap for E-lock: ${elockNo}`);
   };
 
   const checkServiceStatus = async () => {
