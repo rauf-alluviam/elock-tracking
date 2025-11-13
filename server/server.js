@@ -31,6 +31,8 @@ const io = new SocketIOServer(server, {
       "http://15.207.11.214:5004",
       "http://elock-tracking.s3-website.ap-south-1.amazonaws.com",
       "http://icloud.assetscontrols.com:8092/OpenApi/LBS",
+      "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+      "http://devtransport.s3-website.ap-south-1.amazonaws.com/",
       process.env.CLIENT_URL,
       process.env.ADDITIONAL_CLIENT_URL,
     ].filter(Boolean),
@@ -52,25 +54,46 @@ app.use(
 
 app.use(
   cors({
-    // Allow specific origins for HTTP environments
-    origin: [
-      "http://localhost:3005",
-      "http://localhost:5173",
-      "http://localhost:3001",
-      "http://localhost:9001",
-      "http://127.0.0.1:3000",
-      "http://127.0.0.1:5173",
-      "http://3.108.244.38:9005",
-      "http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com",
-      "http://15.207.11.214:5004",
-      "http://elock-tracking.s3-website.ap-south-1.amazonaws.com",
-      "http://icloud.assetscontrols.com:8092/OpenApi/LBS",
-      "http://3.108.244.38:9005/socket.io/?deviceId=8294630573&EIO=4&transport=polling&t=x0995qro&b64=1",
-      process.env.CLIENT_URL,
-      process.env.ADDITIONAL_CLIENT_URL,
-    ].filter(Boolean), // Remove undefined/null entries
-    credentials: true, // Allow cookies in cross-origin requests
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"], // Allowed HTTP methods
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl requests)
+      if (!origin) return callback(null, true);
+
+      const allowedOrigins = [
+        "http://localhost:3005",
+        "http://localhost:5173",
+        "http://localhost:3001",
+        "http://localhost:9001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://3.108.244.38:9005",
+        "http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com",
+        "http://15.207.11.214:5004",
+        "http://elock-tracking.s3-website.ap-south-1.amazonaws.com",
+        "http://icloud.assetscontrols.com:8092",
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://devtransport.s3-website.ap-south-1.amazonaws.com",
+        process.env.CLIENT_URL,
+        process.env.ADDITIONAL_CLIENT_URL,
+      ].filter(Boolean);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        // Check if origin matches any pattern (for subdomains, etc.)
+        const isAllowed = allowedOrigins.some(
+          (allowedOrigin) => origin.startsWith(allowedOrigin.replace(/\/$/, "")) // Remove trailing slashes for comparison
+        );
+
+        if (isAllowed) {
+          callback(null, true);
+        } else {
+          console.log("CORS blocked for origin:", origin);
+          callback(new Error("Not allowed by CORS"));
+        }
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -78,8 +101,6 @@ app.use(
       "Accept",
       "Origin",
     ],
-    exposedHeaders: ["Content-Length", "X-Auth-Token"], // Headers that browsers are allowed to access
-    maxAge: 86400, // How long the results of a preflight request can be cached (in seconds)
   })
 );
 app.use(express.json());
@@ -93,6 +114,7 @@ app.get("/api/proxy/client-elock-assign", async (req, res) => {
     // Make request to external API
     const response = await axios.get(
       "http://3.108.244.38:9005/api/client-elock-assign",
+      // "http://43.205.59.159:9005/api/client-elock-assign",
       {
         params: { page, limit, ieCodeNo },
         timeout: 10000, // 10 second timeout

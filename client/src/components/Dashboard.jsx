@@ -10,19 +10,13 @@ import {
   Phone,
   PhoneOff,
   ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import { apiService, api } from "../services/api";
-import MapModal from "./MapModal";
+import TrackingMap from "./TrackingMap.jsx"; // Import TrackingMap instead of ElockGPSOperation
 import Toast from "./Toast";
 import LoadingSpinner from "./LoadingSpinner";
 import { useNavigate } from "react-router-dom";
-
-import { ArrowLeft } from "lucide-react";
-
-const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
-const INSTRUCTION_API_URL =
-  "http://icloud.assetscontrols.com:8092/OpenApi/Instruction";
-const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -31,8 +25,6 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [serviceStatus, setServiceStatus] = useState(null);
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null);
   const [toast, setToast] = useState(null);
   const [loadingStates, setLoadingStates] = useState({});
   const [statusFilter, setStatusFilter] = useState("");
@@ -45,28 +37,23 @@ const Dashboard = () => {
   const [selectedIeCode, setSelectedIeCode] = useState("");
   const [showIeCodeDropdown, setShowIeCodeDropdown] = useState(false);
 
+  // Tracking Map States
+  const [showTrackingMap, setShowTrackingMap] = useState(false);
+  const [selectedElockNo, setSelectedElockNo] = useState(null);
+  const [selectedContainerData, setSelectedContainerData] = useState(null);
+
   useEffect(() => {
     fetchUserData();
     checkServiceStatus();
   }, []);
 
-  // FIX: Add selectedIeCode to the dependency array
   useEffect(() => {
     if (userData) {
       fetchAssignments();
     }
-  }, [
-    currentPage,
-    searchTerm,
-    statusFilter,
-    filterType,
-    userData,
-    itemsPerPage,
-    selectedIeCode, // Add this line - this will trigger refetch when IE code changes
-  ]);
+  }, [currentPage, searchTerm, statusFilter, filterType, userData, itemsPerPage, selectedIeCode]);
 
-  function BackButton() {
-    const navigate = useNavigate();
+  const BackButton = () => {
     return (
       <button
         type="button"
@@ -79,7 +66,7 @@ const Dashboard = () => {
         <ArrowLeft className="h-6 w-6 mr-2" />
       </button>
     );
-  }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -88,7 +75,6 @@ const Dashboard = () => {
         setUserData(response.user);
         console.log("✅ User data loaded:", response.user);
 
-        // Set default selected IE code to the first one
         if (response.user.ieCodes && response.user.ieCodes.length > 0) {
           setSelectedIeCode(response.user.ieCodes[0]);
         }
@@ -125,7 +111,7 @@ const Dashboard = () => {
         search: searchTerm,
         status: statusFilter,
         filterType: filterType,
-        ieCodeNo: selectedIeCode || userData?.ieCodeNo || "", // Use selected IE code
+        ieCodeNo: selectedIeCode || userData?.ieCodeNo || "",
       };
 
       console.log("📊 Request params:", params);
@@ -181,55 +167,17 @@ const Dashboard = () => {
     }
   };
 
-  // Add IE Code selector to header
-  const renderIeCodeSelector = () => {
-    if (!userData?.ieCodes || userData.ieCodes.length <= 1) {
-      return null;
+  // Track E-lock handler - Opens TrackingMap
+  const handleTrackElock = (elockNo, containerData) => {
+    if (!elockNo) {
+      showToast("E-lock number not available for this container", "error");
+      return;
     }
 
-    return (
-      <div className="relative ml-8">
-        <button
-          onClick={() => setShowIeCodeDropdown(!showIeCodeDropdown)}
-          className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50"
-        >
-          <User className="h-4 w-4" />
-          <span className="text-sm font-medium">IE Code: {selectedIeCode}</span>
-          <ChevronDown className="h-4 w-4" />
-        </button>
-
-        {showIeCodeDropdown && (
-          <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
-            <div className="p-2 max-h-60 overflow-y-auto">
-              {userData.ieCodes.map((ieCode, index) => (
-                <button
-                  key={ieCode}
-                  onClick={() => {
-                    setSelectedIeCode(ieCode);
-                    setShowIeCodeDropdown(false);
-                    setCurrentPage(1); // Reset to first page when changing IE code
-                    // FIX: No need to manually call fetchAssignments here
-                    // The useEffect will automatically trigger due to selectedIeCode change
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                    selectedIeCode === ieCode
-                      ? "bg-blue-100 text-blue-800"
-                      : "hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="font-medium">{ieCode}</div>
-                  {userData.ieCodeAssignments?.[index]?.importer_name && (
-                    <div className="text-xs text-gray-600 truncate">
-                      {userData.ieCodeAssignments[index].importer_name}
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
+    setSelectedElockNo(elockNo);
+    setSelectedContainerData(containerData);
+    setShowTrackingMap(true);
+    console.log(`📍 Opening TrackingMap for E-lock: ${elockNo}`);
   };
 
   const checkServiceStatus = async () => {
@@ -247,34 +195,6 @@ const Dashboard = () => {
     }
   };
 
-  const handleViewLocation = async (assetId, containerNo) => {
-    if (!assetId) {
-      showToast("Asset ID not available for this container", "error");
-      return;
-    }
-
-    setLoadingStates((prev) => ({ ...prev, [`location_${assetId}`]: true }));
-
-    try {
-      const response = await apiService.getAssetLocation(assetId);
-      if (response.success && response.data) {
-        setSelectedLocation({
-          ...response.data,
-          containerNo,
-          assetId,
-        });
-        setShowMapModal(true);
-      } else {
-        showToast("Location data not available", "error");
-      }
-    } catch (error) {
-      console.error("Error fetching location:", error);
-      showToast("Failed to fetch location data", "error");
-    } finally {
-      setLoadingStates((prev) => ({ ...prev, [`location_${assetId}`]: false }));
-    }
-  };
-
   const handleUnlockDevice = async (assetId, containerNo) => {
     if (!assetId) {
       showToast("Asset ID not available for this container", "error");
@@ -282,12 +202,13 @@ const Dashboard = () => {
     }
     setLoadingStates((prev) => ({ ...prev, [`unlock_${assetId}`]: true }));
     try {
-      const adminRes = await fetch(ADMIN_API_URL, {
+      // Use your existing unlock logic from TrackingMap
+      const adminRes = await fetch("http://icloud.assetscontrols.com:8092/OpenApi/Admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           FAction: "QueryAdminAssetByAssetId",
-          FTokenID: TOKEN_ID,
+          FTokenID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
           FAssetID: assetId,
         }),
       });
@@ -297,11 +218,11 @@ const Dashboard = () => {
         return;
       }
       const FGUID = adminData.FObject[0].FGUID;
-      const unlockRes = await fetch(INSTRUCTION_API_URL, {
+      const unlockRes = await fetch("http://icloud.assetscontrols.com:8092/OpenApi/Instruction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          FTokenID: TOKEN_ID,
+          FTokenID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
           FAction: "OpenLockControl",
           FAssetGUID: FGUID,
         }),
@@ -394,6 +315,54 @@ const Dashboard = () => {
     }
   };
 
+  const renderIeCodeSelector = () => {
+    if (!userData?.ieCodes || userData.ieCodes.length <= 1) {
+      return null;
+    }
+
+    return (
+      <div className="relative ml-8">
+        <button
+          onClick={() => setShowIeCodeDropdown(!showIeCodeDropdown)}
+          className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50"
+        >
+          <User className="h-4 w-4" />
+          <span className="text-sm font-medium">IE Code: {selectedIeCode}</span>
+          <ChevronDown className="h-4 w-4" />
+        </button>
+
+        {showIeCodeDropdown && (
+          <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-md shadow-lg z-10">
+            <div className="p-2 max-h-60 overflow-y-auto">
+              {userData.ieCodes.map((ieCode, index) => (
+                <button
+                  key={ieCode}
+                  onClick={() => {
+                    setSelectedIeCode(ieCode);
+                    setShowIeCodeDropdown(false);
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
+                    selectedIeCode === ieCode
+                      ? "bg-blue-100 text-blue-800"
+                      : "hover:bg-gray-100"
+                  }`}
+                >
+                  <div className="font-medium">{ieCode}</div>
+                  {userData.ieCodeAssignments?.[index]?.importer_name && (
+                    <div className="text-xs text-gray-600 truncate">
+                      {userData.ieCodeAssignments[index].importer_name}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading && assignments.length === 0) {
     return <LoadingSpinner />;
   }
@@ -402,7 +371,6 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="flex justify-between items-center py-6">
-        {/* Left: Back button flush left, then title/text */}
         <div className="flex flex-col items-start ml-10">
           <div className="flex items-center">
             <BackButton />
@@ -426,7 +394,6 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Right group: Service status + Refresh */}
         <div className="flex items-center mr-10 space-x-4">
           <div
             className={`flex items-center space-x-2 px-3 py-1 rounded-full text-sm ${
@@ -457,10 +424,11 @@ const Dashboard = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </button>
+          <div>{import.meta.env.VERSION}</div>
         </div>
       </div>
 
-      {/* Container Assignments Header with Pagination on right */}
+      {/* Container Assignments */}
       <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6 max-w-full">
@@ -523,7 +491,7 @@ const Dashboard = () => {
                   value={itemsPerPage}
                   onChange={(e) => {
                     setItemsPerPage(parseInt(e.target.value));
-                    setCurrentPage(1); // Reset to page 1 on limit change
+                    setCurrentPage(1);
                   }}
                   className="border border-gray-300 rounded px-2 py-1"
                 >
@@ -536,7 +504,6 @@ const Dashboard = () => {
                 </span>
               </div>
 
-              {/* Pagination Controls on right */}
               {totalPages > 1 && (
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <button
@@ -583,70 +550,37 @@ const Dashboard = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Actions
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     LR No
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Consignor
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Consignee
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Container No
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Vehicle No
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Driver Info
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     E-Lock Details
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Client Call
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Pickup Location
                   </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-                  >
+                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                     Delivery Location
                   </th>
                 </tr>
@@ -694,10 +628,9 @@ const Dashboard = () => {
                         </button>
                         <button
                           onClick={() =>
-                            navigate(
-                              `/elock/${
-                                assignment.f_asset_id || assignment.elock_no
-                              }`
+                            handleTrackElock(
+                              assignment.f_asset_id || assignment.elock_no,
+                              assignment
                             )
                           }
                           disabled={
@@ -827,11 +760,19 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Map Modal */}
-      {showMapModal && selectedLocation && (
-        <MapModal
-          location={selectedLocation}
-          onClose={() => setShowMapModal(false)}
+      {/* Tracking Map Modal */}
+      {showTrackingMap && (
+        <TrackingMap
+          isOpen={showTrackingMap}
+          onClose={() => {
+            setShowTrackingMap(false);
+            setSelectedElockNo(null);
+            setSelectedContainerData(null);
+          }}
+          elockNo={selectedElockNo}
+          containerId={selectedContainerData?.id || selectedContainerData?._id}
+          containerData={selectedContainerData}
+          source="containers"
         />
       )}
 

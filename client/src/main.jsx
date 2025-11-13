@@ -4,6 +4,8 @@ import App from './App.jsx'
 import './index.css'
 import { BrowserRouter } from 'react-router-dom';
 
+
+window.env = import.meta.env
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

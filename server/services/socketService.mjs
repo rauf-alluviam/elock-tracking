@@ -59,6 +59,8 @@ export const initializeSocketIO = (httpServer) => {
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "http://exim-transport.s3-website.ap-south-1.amazonaws.com",
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com/",
+        "http://devtransport.s3-website.ap-south-1.amazonaws.com/",
       ],
       methods: ["GET", "POST"],
       credentials: true,
