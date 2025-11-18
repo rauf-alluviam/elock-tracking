@@ -8,6 +8,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/database.js";
 import elockRoutes from "./routes/elock.js";
+import elockDetail from "./routes/elockDetails.js";
 import authRoutes from "./routes/auth.js";
 import verifyToken from "./middlewares/jwtAuth.js";
 
@@ -160,6 +161,7 @@ app.get("/api/proxy/client-elock-assign", async (req, res) => {
 app.use("/api/auth", authRoutes);
 // Apply JWT verification middleware to elock routes
 app.use("/api/elock", verifyToken, elockRoutes);
+app.use("/api/elock-details",verifyToken, elockDetail);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

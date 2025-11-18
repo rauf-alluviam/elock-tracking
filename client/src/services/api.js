@@ -27,6 +27,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Response interceptor to handle token expiry
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem("exim_sso_token");
+      localStorage.removeItem("jwt_token");
+      sessionStorage.removeItem("jwt_token");
+      
+      // Redirect to login
+      window.location.href = 
+        "http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 // API Service functions
 export const apiService = {
   // Token handling methods
@@ -213,6 +231,117 @@ export const apiService = {
       throw error;
     }
   },
+
+  // ==================== E-LOCK MANAGEMENT ENDPOINTS ====================
+
+  // Get all e-lock details with pagination and filters
+  getElockDetails: async (params = {}) => {
+    try {
+      console.log("🔍 Fetching e-lock details with params:", params);
+      
+      const response = await api.get("/elock-details", { params });
+      
+      console.log("✅ E-lock details response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching e-lock details:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Failed to fetch e-lock details" 
+      };
+    }
+  },
+
+  // Get single e-lock detail
+  getElockDetail: async (id) => {
+    try {
+      const response = await api.get(`/elock-details/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching e-lock detail:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Failed to fetch e-lock detail" 
+      };
+    }
+  },
+
+  // Create new e-lock detail
+  createElockDetail: async (data) => {
+    try {
+      console.log("📝 Creating e-lock detail:", data);
+      
+      const response = await api.post("/elock-details", data);
+      
+      console.log("✅ E-lock detail created:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error creating e-lock detail:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Failed to create e-lock detail" 
+      };
+    }
+  },
+
+  // Update e-lock detail
+  updateElockDetail: async (id, data) => {
+    try {
+      console.log("📝 Updating e-lock detail:", id, data);
+      
+      const response = await api.put(`/elock-details/${id}`, data);
+      
+      console.log("✅ E-lock detail updated:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error updating e-lock detail:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Failed to update e-lock detail" 
+      };
+    }
+  },
+
+  // Delete e-lock detail
+  deleteElockDetail: async (id) => {
+    try {
+      console.log("🗑️ Deleting e-lock detail:", id);
+      
+      const response = await api.delete(`/elock-details/${id}`);
+      
+      console.log("✅ E-lock detail deleted:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error deleting e-lock detail:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Failed to delete e-lock detail" 
+      };
+    }
+  },
+
+  // Bulk update e-lock status
+  bulkUpdateElockStatus: async (elockIds, status) => {
+    try {
+      console.log("🔄 Bulk updating e-lock status:", { elockIds, status });
+      
+      const response = await api.patch("/elock-details/bulk/status", {
+        elock_ids: elockIds,
+        status
+      });
+      
+      console.log("✅ Bulk status update completed:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error in bulk status update:", error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Failed to update e-lock status" 
+      };
+    }
+  },
+
+  // ==================== EXISTING ENDPOINTS ====================
 
   // Asset location tracking
   getAssetLocation: async (assetId) => {

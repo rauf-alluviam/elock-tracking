@@ -719,8 +719,8 @@ const TrackingMap = ({
         // Determine which API endpoint to use based on source
         const apiUrl =
           source === "containers"
-            ? `http://3.108.244.38:9005/api/elock-status-history/${containerId}`
-            : `http://3.108.244.38:9005/api/elock-status-history-others/${containerId}`;
+            ? `http://43.205.59.159:9005/api/elock-status-history/${containerId}`
+            : `http://43.205.59.159:9005/api/elock-status-history-others/${containerId}`;
 
         const response = await axios.get(apiUrl);
         console.log("📦 API Response:", response.data);

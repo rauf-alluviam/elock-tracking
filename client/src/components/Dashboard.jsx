@@ -17,6 +17,7 @@ import TrackingMap from "./TrackingMap.jsx"; // Import TrackingMap instead of El
 import Toast from "./Toast";
 import LoadingSpinner from "./LoadingSpinner";
 import { useNavigate } from "react-router-dom";
+import ElockManagement from "./ElockManagement.jsx";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const [showTrackingMap, setShowTrackingMap] = useState(false);
   const [selectedElockNo, setSelectedElockNo] = useState(null);
   const [selectedContainerData, setSelectedContainerData] = useState(null);
+  const [activeTab, setActiveTab] = useState("assignments");
 
   useEffect(() => {
     fetchUserData();
@@ -51,7 +53,15 @@ const Dashboard = () => {
     if (userData) {
       fetchAssignments();
     }
-  }, [currentPage, searchTerm, statusFilter, filterType, userData, itemsPerPage, selectedIeCode]);
+  }, [
+    currentPage,
+    searchTerm,
+    statusFilter,
+    filterType,
+    userData,
+    itemsPerPage,
+    selectedIeCode,
+  ]);
 
   const BackButton = () => {
     return (
@@ -112,7 +122,6 @@ const Dashboard = () => {
         ieCodeNo: selectedIeCode || userData?.ieCodeNo || "",
       };
 
-
       const response = await apiService.getElockAssignments(params);
 
       if (response.success) {
@@ -121,7 +130,6 @@ const Dashboard = () => {
           response.data.length,
           "containers"
         );
-        
 
         setAssignments(response.data);
         setTotalCount(response.pagination?.totalCount || response.data.length);
@@ -196,30 +204,36 @@ const Dashboard = () => {
     setLoadingStates((prev) => ({ ...prev, [`unlock_${assetId}`]: true }));
     try {
       // Use your existing unlock logic from TrackingMap
-      const adminRes = await fetch("http://icloud.assetscontrols.com:8092/OpenApi/Admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          FAction: "QueryAdminAssetByAssetId",
-          FTokenID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
-          FAssetID: assetId,
-        }),
-      });
+      const adminRes = await fetch(
+        "http://icloud.assetscontrols.com:8092/OpenApi/Admin",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            FAction: "QueryAdminAssetByAssetId",
+            FTokenID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
+            FAssetID: assetId,
+          }),
+        }
+      );
       const adminData = await adminRes.json();
       if (!adminData.FObject || !adminData.FObject.length) {
         showToast("Asset not found in system", "error");
         return;
       }
       const FGUID = adminData.FObject[0].FGUID;
-      const unlockRes = await fetch("http://icloud.assetscontrols.com:8092/OpenApi/Instruction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          FTokenID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
-          FAction: "OpenLockControl",
-          FAssetGUID: FGUID,
-        }),
-      });
+      const unlockRes = await fetch(
+        "http://icloud.assetscontrols.com:8092/OpenApi/Instruction",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            FTokenID: "e36d2589-9dc3-4302-be7d-dc239af1846c",
+            FAction: "OpenLockControl",
+            FAssetGUID: FGUID,
+          }),
+        }
+      );
       const unlockData = await unlockRes.json();
       if (unlockData.Result === 200) {
         showToast(
@@ -465,277 +479,369 @@ const Dashboard = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden max-w-full">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Container Assignments
-                </h2>
-                <p className="text-sm text-gray-600">
-                  {totalCount} total containers, showing {assignments.length} on
-                  page {currentPage}
-                  {selectedIeCode && ` for IE Code: ${selectedIeCode}`}
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <span>Items per page:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(parseInt(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="border border-gray-300 rounded px-2 py-1"
+          {/* Tab Navigation */}
+          <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab("assignments")}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === "assignments"
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
                 >
-                  <option value={20}>20</option>
-                  <option value={100}>100</option>
-                  <option value={1000}>1000</option>
-                </select>
-                <span>
-                  Page {currentPage} of {totalPages}
-                </span>
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-
-                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                    const pageNum = Math.max(1, currentPage - 2) + index;
-                    if (pageNum <= totalPages) {
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                            pageNum === currentPage
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "text-gray-700 bg-white hover:bg-gray-50"
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    }
-                    return null;
-                  })}
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
+                  Container Assignments
+                </button>
+                <button
+                  onClick={() => setActiveTab("elock-management")}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === "elock-management"
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  E-Lock Management
+                </button>
+              </nav>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Actions
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    LR No
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Consignor
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Consignee
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Container No
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Vehicle No
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Driver Info
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    E-Lock Details
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Client Call
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Pickup Location
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
-                    Delivery Location
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {assignments.map((assignment, index) => (
-                  <tr
-                    key={assignment.id || assignment._id || index}
-                    className="hover:bg-gray-50"
-                  >
-                    {/* Actions */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col space-y-1">
-                        <button
-                          onClick={() =>
-                            handleUnlockDevice(
-                              assignment.f_asset_id || assignment.elock_no,
-                              assignment.container_no
-                            )
-                          }
-                          disabled={
-                            !(assignment.f_asset_id || assignment.elock_no) ||
-                            loadingStates[
-                              `unlock_${
-                                assignment.f_asset_id || assignment.elock_no
-                              }`
-                            ]
-                          }
-                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                            !(assignment.f_asset_id || assignment.elock_no)
-                              ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
-                              : "border-red-300 text-red-700 bg-red-50 hover:bg-red-100"
-                          }`}
-                        >
-                          {loadingStates[
-                            `unlock_${
-                              assignment.f_asset_id || assignment.elock_no
-                            }`
-                          ] ? (
-                            <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                          ) : (
-                            <Unlock className="h-3 w-3 mr-1" />
-                          )}
-                          Unlock
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleTrackElock(
-                              assignment.f_asset_id || assignment.elock_no,
-                              assignment
-                            )
-                          }
-                          disabled={
-                            !(assignment.f_asset_id || assignment.elock_no)
-                          }
-                          className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                            !(assignment.f_asset_id || assignment.elock_no)
-                              ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
-                              : "border-green-300 text-green-700 bg-green-50 hover:bg-green-100"
-                          }`}
-                        >
-                          <MapPin className="h-3 w-3 mr-1" />
-                          Track
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                        {formatFieldValue(assignment.tr_no)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                        {formatFieldValue(assignment.consignor_name)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                        {formatFieldValue(assignment.consignee_name)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatFieldValue(assignment.container_no)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatFieldValue(assignment.vehicle_no)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900">
-                          {formatFieldValue(assignment.driver_name)}
-                        </div>
-                        <div className="text-gray-500">
-                          {formatFieldValue(assignment.driver_phone)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900">
-                          {formatFieldValue(
-                            assignment.elock_no || assignment.f_asset_id
-                          )}
-                        </div>
-                        <div>
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                              assignment.elock_status
-                            )}`}
-                          >
-                            {formatFieldValue(assignment.elock_status)}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+          {/* Tab Content */}
+          {activeTab === "assignments" ? (
+            // Your existing assignments content
+            <div>
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Container Assignments
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      {totalCount} total containers, showing{" "}
+                      {assignments.length} on page {currentPage}
+                      {selectedIeCode && ` for IE Code: ${selectedIeCode}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span>Items per page:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(parseInt(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="border border-gray-300 rounded px-2 py-1"
+                    >
+                      <option value={20}>20</option>
+                      <option value={100}>100</option>
+                      <option value={1000}>1000</option>
+                    </select>
+                    <span>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <button
-                        onClick={() =>
-                          handleClientCallToggle(
-                            assignment.id || assignment._id
-                          )
-                        }
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          clientCallStates[assignment.id || assignment._id]
-                            ? "bg-green-100 text-green-800 hover:bg-green-200"
-                            : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                        }`}
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {clientCallStates[assignment.id || assignment._id] ? (
-                          <Phone className="h-3 w-3 mr-1" />
-                        ) : (
-                          <PhoneOff className="h-3 w-3 mr-1" />
-                        )}
-                        {clientCallStates[assignment.id || assignment._id]
-                          ? "Enabled"
-                          : "Disabled"}
+                        Previous
                       </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl">
-                        <div
-                          className="font-medium text-gray-900 break"
-                          title={assignment.pickup_location_address}
-                        >
-                          {formatFieldValue(assignment.pickup_location_address)}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 max-w-xs">
-                        {formatFieldValue(assignment.delivery_location_address)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+                      {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                        const pageNum = Math.max(1, currentPage - 2) + index;
+                        if (pageNum <= totalPages) {
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => handlePageChange(pageNum)}
+                              className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                                pageNum === currentPage
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "text-gray-700 bg-white hover:bg-gray-50"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        }
+                        return null;
+                      })}
+
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Actions
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        LR No
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Consignor
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Consignee
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Container No
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Vehicle No
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Driver Info
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        E-Lock Details
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Client Call
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Pickup Location
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
+                      >
+                        Delivery Location
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {assignments.map((assignment, index) => (
+                      <tr
+                        key={assignment.id || assignment._id || index}
+                        className="hover:bg-gray-50"
+                      >
+                        {/* Actions */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col space-y-1">
+                            <button
+                              onClick={() =>
+                                handleUnlockDevice(
+                                  assignment.f_asset_id || assignment.elock_no,
+                                  assignment.container_no
+                                )
+                              }
+                              disabled={
+                                !(
+                                  assignment.f_asset_id || assignment.elock_no
+                                ) ||
+                                loadingStates[
+                                  `unlock_${
+                                    assignment.f_asset_id || assignment.elock_no
+                                  }`
+                                ]
+                              }
+                              className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                                !(assignment.f_asset_id || assignment.elock_no)
+                                  ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
+                                  : "border-red-300 text-red-700 bg-red-50 hover:bg-red-100"
+                              }`}
+                            >
+                              {loadingStates[
+                                `unlock_${
+                                  assignment.f_asset_id || assignment.elock_no
+                                }`
+                              ] ? (
+                                <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Unlock className="h-3 w-3 mr-1" />
+                              )}
+                              Unlock
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleTrackElock(
+                                  assignment.f_asset_id || assignment.elock_no,
+                                  assignment
+                                )
+                              }
+                              disabled={
+                                !(assignment.f_asset_id || assignment.elock_no)
+                              }
+                              className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                                !(assignment.f_asset_id || assignment.elock_no)
+                                  ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
+                                  : "border-green-300 text-green-700 bg-green-50 hover:bg-green-100"
+                              }`}
+                            >
+                              <MapPin className="h-3 w-3 mr-1" />
+                              Track
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                            {formatFieldValue(assignment.tr_no)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                            {formatFieldValue(assignment.consignor_name)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                            {formatFieldValue(assignment.consignee_name)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatFieldValue(assignment.container_no)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatFieldValue(assignment.vehicle_no)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <div className="font-medium text-gray-900">
+                              {formatFieldValue(assignment.driver_name)}
+                            </div>
+                            <div className="text-gray-500">
+                              {formatFieldValue(assignment.driver_phone)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm">
+                            <div className="font-medium text-gray-900">
+                              {formatFieldValue(
+                                assignment.elock_no || assignment.f_asset_id
+                              )}
+                            </div>
+                            <div>
+                              <span
+                                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                                  assignment.elock_status
+                                )}`}
+                              >
+                                {formatFieldValue(assignment.elock_status)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() =>
+                              handleClientCallToggle(
+                                assignment.id || assignment._id
+                              )
+                            }
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                              clientCallStates[assignment.id || assignment._id]
+                                ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                            }`}
+                          >
+                            {clientCallStates[
+                              assignment.id || assignment._id
+                            ] ? (
+                              <Phone className="h-3 w-3 mr-1" />
+                            ) : (
+                              <PhoneOff className="h-3 w-3 mr-1" />
+                            )}
+                            {clientCallStates[assignment.id || assignment._id]
+                              ? "Enabled"
+                              : "Disabled"}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl">
+                            <div
+                              className="font-medium text-gray-900 break"
+                              title={assignment.pickup_location_address}
+                            >
+                              {formatFieldValue(
+                                assignment.pickup_location_address
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900 max-w-xs">
+                            {formatFieldValue(
+                              assignment.delivery_location_address
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {assignments.length === 0 && !loading && (
+                <div className="text-center py-12">
+                  <AlertCircle className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    No assignments found
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {selectedIeCode
+                      ? `No assignments found for IE Code: ${selectedIeCode}. Try selecting a different IE Code.`
+                      : "Try adjusting your search criteria or filters."}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            // E-Lock Management Tab Content
+            <ElockManagement />
+          )}
         </div>
 
         {assignments.length === 0 && !loading && (
