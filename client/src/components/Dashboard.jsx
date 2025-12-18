@@ -108,20 +108,33 @@ const Dashboard = () => {
       showToast("Error loading user data", "error");
     }
   };
+  const toPositiveIntOrNull = (value) => {
+    const num = Number(value);
+    if (!Number.isInteger(num) || num <= 0) return null;
+    return num;
+  };
 
+  const buildAssignmentParams = () => {
+    const page = toPositiveIntOrNull(currentPage);
+    const limit = toPositiveIntOrNull(itemsPerPage);
+
+    const params = {
+      ieCodeNo: selectedIeCode || userData?.ieCodeNo || "",
+      search: searchTerm || "",
+      status: statusFilter || "",
+      filterType: filterType || "",
+    };
+
+    // send only when meaningful
+    if (page !== null) params.page = page;
+    if (limit !== null) params.limit = limit;
+
+    return params;
+  };
   const fetchAssignments = async () => {
     try {
       setLoading(true);
-
-      const params = {
-        page: currentPage,
-        limit: itemsPerPage,
-        search: searchTerm,
-        status: statusFilter,
-        filterType: filterType,
-        ieCodeNo: selectedIeCode || userData?.ieCodeNo || "",
-      };
-
+      const params = buildAssignmentParams();
       const response = await apiService.getElockAssignments(params);
 
       if (response.success) {
@@ -292,6 +305,17 @@ const Dashboard = () => {
   const handleFilterTypeChange = (e) => {
     setFilterType(e.target.value);
     setCurrentPage(1);
+  };
+  const hasMeaningfulValue = (value) => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") {
+      const trimmed = value.trim().toLowerCase();
+      if (!trimmed) return false;
+      if (["n/a", "na", "none", "null", "undefined", "-"].includes(trimmed)) {
+        return false;
+      }
+    }
+    return true;
   };
 
   const formatFieldValue = (value) => {
@@ -493,7 +517,7 @@ const Dashboard = () => {
                 >
                   Container Assignments
                 </button>
-                <button
+                {/* <button
                   onClick={() => setActiveTab("elock-management")}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === "elock-management"
@@ -502,7 +526,7 @@ const Dashboard = () => {
                   }`}
                 >
                   E-Lock Management
-                </button>
+                </button> */}
               </nav>
             </div>
           </div>

@@ -36,9 +36,9 @@ api.interceptors.response.use(
       localStorage.removeItem("exim_sso_token");
       localStorage.removeItem("jwt_token");
       sessionStorage.removeItem("jwt_token");
-      
+
       // Redirect to login
-      window.location.href = 
+      window.location.href =
         "http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login";
     }
     return Promise.reject(error);
@@ -178,7 +178,7 @@ export const apiService = {
       const response = await api.post("/auth/verify-token", {
         token: token.trim(),
       });
-      
+
       if (response.data.success) {
         // Enhance user data with IE code information
         const userData = response.data.user || response.data;
@@ -190,8 +190,11 @@ export const apiService = {
             ieCodes: userData.ie_codes || [userData.ie_code_no].filter(Boolean),
             ieCodeAssignments: userData.ie_code_assignments || [],
             // Backward compatibility
-            ieCodeNo: userData.ie_code_no || (userData.ie_codes && userData.ie_codes[0]) || ''
-          }
+            ieCodeNo:
+              userData.ie_code_no ||
+              (userData.ie_codes && userData.ie_codes[0]) ||
+              "",
+          },
         };
       }
       return response.data;
@@ -238,16 +241,19 @@ export const apiService = {
   getElockDetails: async (params = {}) => {
     try {
       console.log("🔍 Fetching e-lock details with params:", params);
-      
-      const response = await api.get("/elock-details", { params });
-      
+
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/elock-details`,
+        { params }
+      );
+
       console.log("✅ E-lock details response:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Error fetching e-lock details:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Failed to fetch e-lock details" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to fetch e-lock details",
       };
     }
   },
@@ -259,9 +265,9 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error("❌ Error fetching e-lock detail:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Failed to fetch e-lock detail" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to fetch e-lock detail",
       };
     }
   },
@@ -270,16 +276,16 @@ export const apiService = {
   createElockDetail: async (data) => {
     try {
       console.log("📝 Creating e-lock detail:", data);
-      
+
       const response = await api.post("/elock-details", data);
-      
+
       console.log("✅ E-lock detail created:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Error creating e-lock detail:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Failed to create e-lock detail" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to create e-lock detail",
       };
     }
   },
@@ -288,16 +294,16 @@ export const apiService = {
   updateElockDetail: async (id, data) => {
     try {
       console.log("📝 Updating e-lock detail:", id, data);
-      
+
       const response = await api.put(`/elock-details/${id}`, data);
-      
+
       console.log("✅ E-lock detail updated:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Error updating e-lock detail:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Failed to update e-lock detail" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to update e-lock detail",
       };
     }
   },
@@ -306,16 +312,16 @@ export const apiService = {
   deleteElockDetail: async (id) => {
     try {
       console.log("🗑️ Deleting e-lock detail:", id);
-      
+
       const response = await api.delete(`/elock-details/${id}`);
-      
+
       console.log("✅ E-lock detail deleted:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Error deleting e-lock detail:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Failed to delete e-lock detail" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to delete e-lock detail",
       };
     }
   },
@@ -324,19 +330,19 @@ export const apiService = {
   bulkUpdateElockStatus: async (elockIds, status) => {
     try {
       console.log("🔄 Bulk updating e-lock status:", { elockIds, status });
-      
+
       const response = await api.patch("/elock-details/bulk/status", {
         elock_ids: elockIds,
-        status
+        status,
       });
-      
+
       console.log("✅ Bulk status update completed:", response.data);
       return response.data;
     } catch (error) {
       console.error("❌ Error in bulk status update:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || "Failed to update e-lock status" 
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to update e-lock status",
       };
     }
   },

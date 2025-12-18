@@ -37,11 +37,14 @@ import {
   CardContent,
   Divider,
   Grid,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
+import MenuIcon from "@mui/icons-material/Menu"; // Added from UI source
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import PersonIcon from "@mui/icons-material/Person";
 import PhoneIcon from "@mui/icons-material/Phone";
@@ -82,19 +85,19 @@ const TOKEN_ID = "e36d2589-9dc3-4302-be7d-dc239af1846c";
 const ADMIN_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/Admin";
 const LBS_API_URL = "http://icloud.assetscontrols.com:8092/OpenApi/LBS";
 
-// Custom numbered marker icon with hover effect
+// Custom numbered marker icon with hover effect (From Second Code Logic)
 const createNumberIcon = (number, isFirst = false, isLast = false) => {
   const color = isFirst ? "#4CAF50" : isLast ? "#F44336" : "white";
   return divIcon({
     className: "custom-number-marker",
     html: `<div class="marker-number" style="background-color: ${color}" title="${number}"></div>`,
     iconSize: [10, 10],
-    iconAnchor: [10, 10], // Changed to [10, 10] to center the 20px icon
-    popupAnchor: [0, -10], // Adjusted popup anchor to work with centered icon
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -10],
   });
 };
 
-// Custom truck icon for active/ongoing journey
+// Custom truck icon for active/ongoing journey (From Second Code Logic)
 const createTruckIcon = () => {
   return divIcon({
     className: "custom-truck-marker",
@@ -102,12 +105,12 @@ const createTruckIcon = () => {
            <img src=${truckIcon} alt="truck" />
           </div>`,
     iconSize: [50, 50],
-    iconAnchor: [15, 15], // Center the icon
-    popupAnchor: [0, -15], // Adjusted popup anchor to work with centered icon
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15],
   });
 };
 
-// Custom destination icon for completed journey
+// Custom destination icon for completed journey (From Second Code Logic)
 const createDestinationIcon = () => {
   return divIcon({
     className: "custom-destination-marker",
@@ -117,8 +120,8 @@ const createDestinationIcon = () => {
             </svg>
           </div>`,
     iconSize: [30, 30],
-    iconAnchor: [15, 15], // Center the icon
-    popupAnchor: [0, -15], // Adjusted popup anchor to work with centered icon
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15],
   });
 };
 
@@ -130,9 +133,7 @@ const MapBounds = ({ positions, onBoundsSet }) => {
       const bounds = positions.map((pos) => [pos.Lat, pos.Lon]);
       map.fitBounds(bounds, { padding: [50, 50] });
 
-      // Notify parent component when bounds are set
       if (onBoundsSet) {
-        // Use a timeout to ensure the map has finished rendering
         setTimeout(() => {
           onBoundsSet();
         }, 1000);
@@ -142,24 +143,21 @@ const MapBounds = ({ positions, onBoundsSet }) => {
   return null;
 };
 
-// Component to update map center when new data arrives, but only if user hasn't interacted with the map
+// Component to update map center when new data arrives
 const MapCenterUpdater = ({ center }) => {
-  console.log("center", center);
   const map = useMap();
   const [userInteracted, setUserInteracted] = useState(false);
-  const userInteractedRef = useRef(false); // Use ref to persist across re-renders
+  const userInteractedRef = useRef(false);
 
   useEffect(() => {
-    // Add event listeners to detect user interaction
     const handleUserInteraction = () => {
       setUserInteracted(true);
-      userInteractedRef.current = true; // Also update the ref
+      userInteractedRef.current = true;
     };
 
     map.on("dragstart", handleUserInteraction);
     map.on("zoomstart", handleUserInteraction);
 
-    // Clean up event listeners
     return () => {
       map.off("dragstart", handleUserInteraction);
       map.off("zoomstart", handleUserInteraction);
@@ -167,8 +165,6 @@ const MapCenterUpdater = ({ center }) => {
   }, [map]);
 
   useEffect(() => {
-    // Only update center if user hasn't interacted with the map
-    // Check both state and ref to ensure consistency
     if (
       center &&
       center.length === 2 &&
@@ -179,8 +175,6 @@ const MapCenterUpdater = ({ center }) => {
     }
   }, [map, center, userInteracted]);
 
-  // Reset user interaction flag ONLY when elockNo changes (new tracking session)
-  // This effect should be managed by the parent component
   return null;
 };
 
@@ -192,62 +186,53 @@ const TrackingMap = ({
   containerData,
   source,
 }) => {
-  console.log("containerData", containerData);
-  console.log("Elock No", elockNo);
-  console.log("source", source);
+  // --- UI Responsive State (From First Code) ---
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // --- Logic State (From Second Code) ---
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [showPath, setShowPath] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false); // Separate loading state for history
-  const [currentLoading, setCurrentLoading] = useState(false); // Separate loading state for current status
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [currentLoading, setCurrentLoading] = useState(false);
   const [error, setError] = useState(null);
   const [historyData, setHistoryData] = useState([]);
   const [assetInfo, setAssetInfo] = useState(null);
   const [currentInfo, setCurrentInfo] = useState(null);
-  const [autoRefresh, setAutoRefresh] = useState(true); // Auto-enabled by default
-  const [refreshInterval, setRefreshInterval] = useState(30); // 30 seconds default
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [nextRefreshIn, setNextRefreshIn] = useState(30);
 
-  console.log("asset info", assetInfo);
-  console.log("current info", currentInfo);
-
-  // New states for assignment tracking
   const [assignHistory, setAssignHistory] = useState([]);
   const [assignmentStartTime, setAssignmentStartTime] = useState(null);
   const [assignmentEndTime, setAssignmentEndTime] = useState(null);
   const [isJourneyComplete, setIsJourneyComplete] = useState(false);
 
-  // New states for lock periods
   const [lockPeriods, setLockPeriods] = useState([]);
-  // console.log('lockPeriods', lockPeriods)
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
 
-  // New state for hover tracking
   const [hoveredMarkerIndex, setHoveredMarkerIndex] = useState(null);
-
-  // New state for map visualization loading
   const [mapVisualizationLoading, setMapVisualizationLoading] = useState(false);
-
-  // New state to track if this is the initial load
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Refs to store GUID and interval
   const guidRef = useRef(null);
   const intervalRef = useRef(null);
   const countdownRef = useRef(null);
   const mapRef = useRef(null);
-  const mapKeyRef = useRef(0); // Used to force re-render of map when needed
+  const mapKeyRef = useRef(0);
 
-  // Reset GUID when elockNo changes
+  // --- Effect: Reset GUID when elockNo changes ---
   useEffect(() => {
     guidRef.current = null;
-    setIsInitialLoad(true); // Reset initial load flag when elockNo changes
-    mapKeyRef.current += 1; // Increment to force map re-render with new key
+    setIsInitialLoad(true);
+    mapKeyRef.current += 1;
   }, [elockNo]);
 
-  // Function to format duration in a human-readable way
+  // --- Helper: Format Duration ---
   const formatDuration = (startTime, endTime) => {
     const diffMs = endTime - startTime;
     const diffMins = Math.floor(diffMs / 60000);
@@ -261,7 +246,7 @@ const TrackingMap = ({
     }
   };
 
-  // Function to extract lock periods from tracking data
+  // --- Logic: Extract Lock Periods ---
   const extractLockPeriods = useCallback(
     (data) => {
       if (!data || data.length === 0) return [];
@@ -270,7 +255,6 @@ const TrackingMap = ({
       let lockStartTime = null;
       let lockStartIndex = null;
 
-      // Sort data by GPS time
       const sortedData = [...data].sort(
         (a, b) => new Date(a.GT) - new Date(b.GT)
       );
@@ -280,14 +264,12 @@ const TrackingMap = ({
         const pointTime = new Date(point.GT);
         const lockState = point.LR; // 0: Lock, 1: Unlock
 
-        // If the lock state is 0 (locked) and we don't have a lock start time, start tracking
         if (lockState === 0 && lockStartTime === null) {
           lockStartTime = pointTime;
           lockStartIndex = i;
           continue;
         }
 
-        // If the lock state is 1 (unlocked) and we have a lock start time, complete the period
         if (lockState === 1 && lockStartTime !== null) {
           const endTime = pointTime;
           const duration = formatDuration(lockStartTime, endTime);
@@ -303,17 +285,15 @@ const TrackingMap = ({
             durationMs: endTime - lockStartTime,
           });
 
-          // Reset lock start time
           lockStartTime = null;
           lockStartIndex = null;
         }
       }
 
-      // Handle the case where the last point is still locked
       if (lockStartTime !== null) {
         const endTime = isJourneyComplete
           ? new Date(sortedData[sortedData.length - 1].GT)
-          : new Date(); // Current time if journey is ongoing
+          : new Date();
 
         const duration = formatDuration(lockStartTime, endTime);
 
@@ -334,17 +314,15 @@ const TrackingMap = ({
     [isJourneyComplete]
   );
 
-  // Extract assignment times from history
+  // --- Logic: Extract Assignment Times ---
   const extractAssignmentTimes = useCallback((history) => {
     if (!history || history.length === 0)
       return { startTime: null, endTime: null, isComplete: false };
 
-    // Sort history by timestamp in descending order to find the latest "UNASSIGNED to ASSIGNED"
     const sortedHistory = [...history].sort(
       (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
     );
 
-    // Find the last "UNASSIGNED to ASSIGNED" entry
     const lastAssignedEntry = sortedHistory.find(
       (entry) => entry.change === "UNASSIGNED to ASSIGNED"
     );
@@ -354,7 +332,6 @@ const TrackingMap = ({
 
     const startTime = new Date(lastAssignedEntry.timestamp);
 
-    // Find the first "ASSIGNED to RETURNED" entry after the start time
     const returnedEntry = history.find(
       (entry) =>
         entry.change === "ASSIGNED to RETURNED" &&
@@ -367,7 +344,7 @@ const TrackingMap = ({
     return { startTime, endTime, isComplete };
   }, []);
 
-  // Fetch asset information
+  // --- API: Fetch Asset Info ---
   const fetchAssetInfo = useCallback(async () => {
     try {
       const response = await fetch(ADMIN_API_URL, {
@@ -399,20 +376,17 @@ const TrackingMap = ({
     }
   }, [elockNo]);
 
-  // Fetch historical tracking data
+  // --- API: Fetch History Data ---
   const fetchHistoryData = useCallback(
     async (guid) => {
-      setHistoryLoading(true); // Set history loading to true
+      setHistoryLoading(true);
       try {
-        // Use assignment times instead of time range
         const startTime = assignmentStartTime;
-        const endTime = assignmentEndTime || new Date(); // Use current time if journey is ongoing
+        const endTime = assignmentEndTime || new Date();
 
         console.log(
           `🔄 Fetching history for GUID: ${guid}, Time range: ${startTime.toISOString()} to ${endTime.toISOString()}`
         );
-
-        // const st= new Date('2025-11-10T07:00:00.000Z')
 
         const response = await fetch(LBS_API_URL, {
           method: "POST",
@@ -426,7 +400,7 @@ const TrackingMap = ({
             FStartTime: startTime.toISOString(),
             FEndTime: endTime.toISOString(),
             FLanguage: 0,
-            FDateType: 1, // Query by receiving time
+            FDateType: 1,
           }),
         });
 
@@ -435,14 +409,9 @@ const TrackingMap = ({
         }
 
         const result = await response.json();
-        console.log(
-          `✅ History fetched: ${result.FObject?.length || 0} points`
-        );
 
         if (result.Result === 200 && result.FObject) {
-          // Instead of replacing all data, merge new data with existing
           setHistoryData((prevData) => {
-            // If we have existing data, find the newest point in the old data
             if (prevData.length > 0) {
               const sortedOldData = [...prevData].sort(
                 (a, b) => new Date(a.GT) - new Date(b.GT)
@@ -451,19 +420,12 @@ const TrackingMap = ({
                 sortedOldData[sortedOldData.length - 1].GT
               );
 
-              // Filter new data to only include points newer than our last point
               const newPoints = result.FObject.filter(
                 (point) => new Date(point.GT) > lastOldPointTime
               );
 
-              console.log(
-                `📍 Adding ${newPoints.length} new points to existing ${prevData.length} points`
-              );
-
-              // Return the merged data
               return [...prevData, ...newPoints];
             } else {
-              // If we don't have existing data, use all the new data
               return result.FObject;
             }
           });
@@ -477,24 +439,23 @@ const TrackingMap = ({
         console.error("❌ Fetch history error:", err);
         setError(`Failed to fetch history: ${err.message}`);
       } finally {
-        setHistoryLoading(false); // Set history loading to false
+        setHistoryLoading(false);
       }
     },
     [assignmentStartTime, assignmentEndTime, elockNo]
   );
 
-  // Fetch current status
+  // --- API: Fetch Current Status ---
   async function fetchCurrentStatus(guid) {
-    setCurrentLoading(true); // Set current loading to true
-    console.log(`\n--- Step 2: Fetching Current Status for GUID: ${guid} ---`);
+    setCurrentLoading(true);
     try {
       const response = await fetch(LBS_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          FAction: "QueryLBSMonitorListByFGUIDs", // Action for CURRENT STATUS
+          FAction: "QueryLBSMonitorListByFGUIDs",
           FTokenID: TOKEN_ID,
-          FGUIDs: guid, // Note: the key is FGUIDs (plural)
+          FGUIDs: guid,
           FType: 2,
         }),
       });
@@ -504,22 +465,20 @@ const TrackingMap = ({
       }
 
       const result = await response.json();
-      console.log("✅ Current Status API Response Received:");
-      setCurrentInfo(result.FObject[0]); // Console the full status response as requested
+      setCurrentInfo(result.FObject[0]);
     } catch (err) {
       console.error("❌ Error fetching current status:", err);
     } finally {
-      setCurrentLoading(false); // Set current loading to false
+      setCurrentLoading(false);
     }
   }
 
-  // Load all data
+  // --- Load Data Orchestrator ---
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Use stored GUID or fetch it
       let guid = guidRef.current;
 
       if (!guid) {
@@ -528,7 +487,6 @@ const TrackingMap = ({
 
       if (guid) {
         guidRef.current = guid;
-        // Fetch both history and current status in parallel
         await Promise.all([fetchHistoryData(guid), fetchCurrentStatus(guid)]);
       }
     } catch (err) {
@@ -536,22 +494,20 @@ const TrackingMap = ({
     } finally {
       setLoading(false);
       if (isInitialLoad) {
-        setIsInitialLoad(false); // Mark initial load as complete
+        setIsInitialLoad(false);
       }
     }
   }, [fetchAssetInfo, fetchHistoryData, isInitialLoad]);
 
-  // Initial load when dialog opens
+  // --- Effect: Initial Load on Open ---
   useEffect(() => {
     if (isOpen && elockNo) {
       console.log(`📍 TrackingMap opened for E-lock: ${elockNo}`);
-      // Reset history data when opening with a new elock
       setHistoryData([]);
-      setCurrentInfo(null); // Also reset current info
+      setCurrentInfo(null);
       loadData();
     }
 
-    // Cleanup on dialog close
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -564,20 +520,19 @@ const TrackingMap = ({
     };
   }, [isOpen, elockNo, loadData]);
 
-  // Extract lock periods when history data changes
+  // --- Effect: Process History for Lock Periods ---
   useEffect(() => {
     if (historyData.length > 0) {
       const periods = extractLockPeriods(historyData);
       setLockPeriods(periods);
 
-      // If no period is selected, select the first one
       if (!selectedPeriod && periods.length > 0) {
         setSelectedPeriod(periods[0].id);
       }
     }
   }, [historyData, extractLockPeriods, selectedPeriod]);
 
-  // Filter data based on selected period
+  // --- Effect: Filter Data by Period ---
   useEffect(() => {
     if (selectedPeriod !== null && lockPeriods.length > 0) {
       const period = lockPeriods.find((p) => p.id === selectedPeriod);
@@ -592,58 +547,39 @@ const TrackingMap = ({
         setFilteredData(filtered);
       }
     } else {
-      // If no period is selected, show all data
       setFilteredData(
         [...historyData].sort((a, b) => new Date(a.GT) - new Date(b.GT))
       );
     }
   }, [selectedPeriod, lockPeriods, historyData]);
 
-  // Auto-refresh functionality with countdown
+  // --- Effect: Auto Refresh ---
   useEffect(() => {
-    // Clear existing intervals
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
 
-    // Only auto-refresh if journey is ongoing and we have a GUID
     if (!isOpen || !autoRefresh || !guidRef.current || isJourneyComplete) {
-      console.log(`⏸️ Auto-refresh paused:`, {
-        isOpen,
-        autoRefresh,
-        hasGuid: !!guidRef.current,
-        isJourneyComplete,
-      });
       return;
     }
 
-    // Check if the selected period is ongoing
     const isOngoingPeriod =
       selectedPeriod !== null &&
       lockPeriods.find((p) => p.id === selectedPeriod)?.type === "ongoing";
 
-    // Only auto-refresh if the selected period is ongoing or no period is selected
     if (selectedPeriod !== null && !isOngoingPeriod) {
-      console.log(`⏸️ Auto-refresh paused for completed period`);
       return;
     }
 
-    console.log(`🔁 Auto-refresh enabled: Every ${refreshInterval} seconds`);
-
-    // Set up the main refresh interval
     intervalRef.current = setInterval(() => {
-      console.log(
-        `🔄 Auto-refresh triggered at ${new Date().toLocaleTimeString()}`
-      );
       if (guidRef.current) {
-        // Fetch both history and current status in parallel
         Promise.all([
           fetchHistoryData(guidRef.current),
           fetchCurrentStatus(guidRef.current),
         ]);
       }
-      setNextRefreshIn(refreshInterval); // Reset countdown
+      setNextRefreshIn(refreshInterval);
     }, refreshInterval * 1000);
 
     return () => {
@@ -662,33 +598,27 @@ const TrackingMap = ({
     lockPeriods,
   ]);
 
-  // Countdown timer - separate from auto-refresh
+  // --- Effect: Countdown Timer ---
   useEffect(() => {
-    // Clear existing countdown
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
       countdownRef.current = null;
     }
 
-    // Only start countdown if dialog is open and auto-refresh is enabled
     if (!isOpen || !autoRefresh || isJourneyComplete) {
       return;
     }
 
-    // Check if the selected period is ongoing
     const isOngoingPeriod =
       selectedPeriod !== null &&
       lockPeriods.find((p) => p.id === selectedPeriod)?.type === "ongoing";
 
-    // Only show countdown if the selected period is ongoing or no period is selected
     if (selectedPeriod !== null && !isOngoingPeriod) {
       return;
     }
 
-    // Reset countdown
     setNextRefreshIn(refreshInterval);
 
-    // Set up countdown timer (updates every second)
     countdownRef.current = setInterval(() => {
       setNextRefreshIn((prev) => {
         if (prev <= 1) {
@@ -712,143 +642,7 @@ const TrackingMap = ({
     lockPeriods,
   ]);
 
-  // Fetch assign history and extract times
-  useEffect(() => {
-    const fetchAssignHistory = async () => {
-      try {
-        // Determine which API endpoint to use based on source
-        const apiUrl =
-          source === "containers"
-            ? `http://43.205.59.159:9005/api/elock-status-history/${containerId}`
-            : `http://43.205.59.159:9005/api/elock-status-history-others/${containerId}`;
-
-        const response = await axios.get(apiUrl);
-        console.log("📦 API Response:", response.data);
-        const history = response.data.data.history;
-        setAssignHistory(history);
-
-        // Extract assignment times
-        const { startTime, endTime, isComplete } =
-          extractAssignmentTimes(history);
-        setAssignmentStartTime(startTime);
-        setAssignmentEndTime(endTime);
-        setIsJourneyComplete(isComplete);
-
-        // If we have new times, reload the data
-        if (startTime && guidRef.current) {
-          await Promise.all([
-            fetchHistoryData(guidRef.current),
-            fetchCurrentStatus(guidRef.current),
-          ]);
-        }
-      } catch (error) {
-        console.error("❌ Error fetching history:", error);
-      }
-    };
-
-    if (isOpen) {
-      fetchAssignHistory();
-    }
-  }, [isOpen, extractAssignmentTimes, source, containerId]);
-
-  // Sort data by GPS time
-  const sortedData = useMemo(() => {
-    return filteredData.length > 0
-      ? filteredData
-      : [...historyData].sort((a, b) => new Date(a.GT) - new Date(b.GT));
-  }, [historyData, filteredData]);
-
-  // Create path positions for polyline
-  const pathPositions = useMemo(
-    () => sortedData.map((point) => [point.Lat, point.Lon]),
-    [sortedData]
-  );
-
-  const handleMarkerClick = (index) => {
-    setSelectedPoint(sortedData[index]);
-  };
-
-  // Handle mouse over on marker
-  const handleMarkerMouseOver = (index) => {
-    setHoveredMarkerIndex(index);
-    setSelectedPoint(sortedData[index]);
-  };
-
-  // Handle mouse out from marker
-  const handleMarkerMouseOut = () => {
-    setHoveredMarkerIndex(null);
-    // Don't clear selectedPoint on mouse out to keep the details panel open
-  };
-
-  // const formatTime = (timestamp) => {
-  //   console.log('timestamp', timestamp)
-  //   const date = new Date(timestamp);
-  //   return date.toLocaleString();
-  // };
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-
-    // Use 'en-GB' locale to get DD/MM/YYYY format and add time options
-    const options = {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false, // Use 24-hour format
-    };
-
-    // IMPORTANT: Use toLocaleString, not toLocaleDateString
-    return date.toLocaleString("en-GB", options);
-  };
-
-  const getBatteryColor = (level) => {
-    if (level > 60) return "#4CAF50";
-    if (level > 30) return "#FFC107";
-    return "#F44336";
-  };
-
-  const getLockStatus = (status) => (status === 1 ? "Unlocked" : "Locked");
-
-  const getLocationTypeLabel = (type) => {
-    return type === 1 ? "GPS" : type === 2 ? "LBS" : "Unknown";
-  };
-
-  const handleRefresh = () => {
-    console.log(`🔄 Manual refresh triggered`);
-    setLoading(true); // Ensure loading is set to true for manual refresh
-    loadData();
-    setNextRefreshIn(refreshInterval); // Reset countdown
-  };
-
-  const toggleAutoRefresh = () => {
-    const newState = !autoRefresh;
-    setAutoRefresh(newState);
-    console.log(
-      `${newState ? "▶️" : "⏸️"} Auto-refresh ${
-        newState ? "enabled" : "disabled"
-      }`
-    );
-
-    if (newState) {
-      setNextRefreshIn(refreshInterval);
-    }
-  };
-
-  const handleRefreshIntervalChange = (e) => {
-    const newInterval = e.target.value;
-    setRefreshInterval(newInterval);
-    setNextRefreshIn(newInterval);
-    console.log(`⏱️ Refresh interval changed to ${newInterval} seconds`);
-  };
-
-  const handlePeriodChange = (e) => {
-    setSelectedPeriod(e.target.value);
-  };
-
-  // Update ongoing lock period duration every minute
+  // --- Effect: Update Ongoing Period Duration ---
   useEffect(() => {
     const interval = setInterval(() => {
       if (lockPeriods.length > 0) {
@@ -869,41 +663,140 @@ const TrackingMap = ({
           setLockPeriods(updatedPeriods);
         }
       }
-    }, 60000); // Update every minute
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [lockPeriods]);
 
-  // Helper function to get the E-lock number based on the data structure
+  // --- Effect: Fetch Assignment History ---
+  useEffect(() => {
+    const fetchAssignHistory = async () => {
+      try {
+        const apiUrl =
+          source === "containers"
+            ? `${process.env.REACT_APP_SERVER_URL}/api/elock-status-history/${containerId}`
+            : `${process.env.REACT_APP_SERVER_URL}/api/elock-status-history-others/${containerId}`;
+
+        const response = await axios.get(apiUrl);
+        const history = response.data.data.history;
+        setAssignHistory(history);
+
+        const { startTime, endTime, isComplete } =
+          extractAssignmentTimes(history);
+        setAssignmentStartTime(startTime);
+        setAssignmentEndTime(endTime);
+        setIsJourneyComplete(isComplete);
+
+        if (startTime && guidRef.current) {
+          await Promise.all([
+            fetchHistoryData(guidRef.current),
+            fetchCurrentStatus(guidRef.current),
+          ]);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching history:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchAssignHistory();
+    }
+  }, [isOpen, extractAssignmentTimes, source, containerId]);
+
+  // --- Data Processing for Map ---
+  const sortedData = useMemo(() => {
+    return filteredData.length > 0
+      ? filteredData
+      : [...historyData].sort((a, b) => new Date(a.GT) - new Date(b.GT));
+  }, [historyData, filteredData]);
+
+  const pathPositions = useMemo(
+    () => sortedData.map((point) => [point.Lat, point.Lon]),
+    [sortedData]
+  );
+
+  // --- Event Handlers ---
+  const handleMarkerClick = (index) => {
+    setSelectedPoint(sortedData[index]);
+  };
+
+  const handleMarkerMouseOver = (index) => {
+    setHoveredMarkerIndex(index);
+    setSelectedPoint(sortedData[index]);
+  };
+
+  const handleMarkerMouseOut = () => {
+    setHoveredMarkerIndex(null);
+  };
+
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const options = {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    };
+    return date.toLocaleString("en-GB", options);
+  };
+
+  const getBatteryColor = (level) => {
+    if (level > 60) return "#4CAF50";
+    if (level > 30) return "#FFC107";
+    return "#F44336";
+  };
+
+  const getLockStatus = (status) => (status === 1 ? "Unlocked" : "Locked");
+
+  const getLocationTypeLabel = (type) => {
+    return type === 1 ? "GPS" : type === 2 ? "LBS" : "Unknown";
+  };
+
+  const handleRefresh = () => {
+    setLoading(true);
+    loadData();
+    setNextRefreshIn(refreshInterval);
+  };
+
+  const toggleAutoRefresh = () => {
+    const newState = !autoRefresh;
+    setAutoRefresh(newState);
+    if (newState) {
+      setNextRefreshIn(refreshInterval);
+    }
+  };
+
+  const handlePeriodChange = (e) => {
+    setSelectedPeriod(e.target.value);
+  };
+
   const getElockNumber = () => {
     if (source === "containers") {
       return containerData?.elock_no || "N/A";
     } else {
-      // For "others", elock_no is an object with FAssetID property
       return containerData?.elock_no?.FAssetID || "N/A";
     }
   };
 
-  // Callback for when map bounds are set
   const handleBoundsSet = useCallback(() => {
-    // Only set mapVisualizationLoading to false for the initial load
     if (isInitialLoad) {
       setMapVisualizationLoading(false);
     }
   }, [isInitialLoad]);
 
-  // Set map visualization loading when data changes
   useEffect(() => {
-    // Only show map visualization loading for the initial load
     if (sortedData.length > 0 && isInitialLoad) {
       setMapVisualizationLoading(true);
     }
   }, [sortedData, isInitialLoad]);
 
-  // Determine what to show based on loading states
   const showLoading = loading || historyLoading || currentLoading;
   const hasData = sortedData.length > 0 || currentInfo;
 
+  // --- RENDER (Using UI structure from First Code) ---
   return (
     <Dialog
       open={isOpen}
@@ -917,6 +810,7 @@ const TrackingMap = ({
         },
       }}
     >
+      {/* Title Bar (First Code Style) */}
       <DialogTitle
         sx={{
           m: 0,
@@ -929,7 +823,18 @@ const TrackingMap = ({
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1.5}>
-          {/* Title */}
+          {/* Mobile Menu Icon */}
+          <IconButton
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            sx={{
+              display: { xs: "flex", md: "none" },
+              color: "inherit",
+              mr: 1,
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+
           <Typography
             variant="h6"
             sx={{
@@ -938,16 +843,24 @@ const TrackingMap = ({
               display: "flex",
               alignItems: "center",
               gap: 1,
+              fontSize: { xs: "1rem", md: "1.25rem" },
             }}
           >
-            📍 Elock Tracking History —{" "}
-            <Typography component="span" sx={{ fontWeight: 500 }}>
-              E-lock No: {getElockNumber()}
+            📍 Elock Tracking History
+            <Typography
+              component="span"
+              sx={{
+                fontWeight: 500,
+                display: { xs: "none", sm: "inline" },
+                ml: 1,
+              }}
+            >
+              — E-lock No: {getElockNumber()}
             </Typography>
           </Typography>
 
-          {/* Route Info */}
-          {containerData && (
+          {/* Route Info Chip */}
+          {containerData && !isMobile && (
             <Chip
               label={`Route: ${
                 containerData.goods_pickup?.name || "Unknown"
@@ -961,8 +874,8 @@ const TrackingMap = ({
             />
           )}
 
-          {/* Last Update */}
-          {lastUpdate && (
+          {/* Last Updated Chip */}
+          {lastUpdate && !isMobile && (
             <Chip
               label={`Updated: ${lastUpdate.toLocaleTimeString()}`}
               size="small"
@@ -974,8 +887,8 @@ const TrackingMap = ({
             />
           )}
 
-          {/* Auto Refresh Timer */}
-          {autoRefresh && !isJourneyComplete && (
+          {/* Auto Refresh Chip */}
+          {autoRefresh && !isJourneyComplete && !isMobile && (
             <Chip
               icon={<RefreshIcon fontSize="small" />}
               label={`Next refresh: ${nextRefreshIn}s`}
@@ -988,7 +901,6 @@ const TrackingMap = ({
             />
           )}
 
-          {/* Close Button */}
           <IconButton
             aria-label="close"
             onClick={onClose}
@@ -1008,7 +920,7 @@ const TrackingMap = ({
         dividers
         sx={{ p: 0, display: "flex", flexDirection: "column", height: "100%" }}
       >
-        {/* Controls Bar */}
+        {/* Controls Bar (First Code Style) */}
         <Box
           sx={{
             p: 2,
@@ -1022,17 +934,19 @@ const TrackingMap = ({
             spacing={2}
             alignItems="center"
             flexWrap="wrap"
+            useFlexGap
+            sx={{ gap: 1 }}
           >
-            {/* Assignment Status instead of Time Range */}
             <Chip
               label={
                 isJourneyComplete ? "Journey Complete" : "Journey in Progress"
               }
               color={isJourneyComplete ? "success" : "warning"}
               variant="outlined"
+              size={isMobile ? "small" : "medium"}
             />
 
-            {assignmentStartTime && (
+            {assignmentStartTime && !isMobile && (
               <Chip
                 label={`Start: ${formatTime(assignmentStartTime)}`}
                 size="small"
@@ -1041,7 +955,7 @@ const TrackingMap = ({
               />
             )}
 
-            {assignmentEndTime && (
+            {assignmentEndTime && !isMobile && (
               <Chip
                 label={`End: ${formatTime(assignmentEndTime)}`}
                 size="small"
@@ -1050,7 +964,6 @@ const TrackingMap = ({
               />
             )}
 
-            {/* Lock Period Selector */}
             {lockPeriods.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 180 }}>
                 <InputLabel>Lock Period</InputLabel>
@@ -1070,53 +983,72 @@ const TrackingMap = ({
               </FormControl>
             )}
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={autoRefresh}
-                  onChange={toggleAutoRefresh}
-                  color="success"
-                  disabled={isJourneyComplete}
+            {!isMobile && (
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={autoRefresh}
+                      onChange={toggleAutoRefresh}
+                      color="success"
+                      disabled={isJourneyComplete}
+                    />
+                  }
+                  label={
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      {autoRefresh ? (
+                        <PlayArrowIcon fontSize="small" />
+                      ) : (
+                        <PauseIcon fontSize="small" />
+                      )}
+                      <Typography variant="body2">Auto Refresh</Typography>
+                    </Stack>
+                  }
                 />
-              }
-              label={
-                <Stack direction="row" alignItems="center" spacing={0.5}>
-                  {autoRefresh ? (
-                    <PlayArrowIcon fontSize="small" />
-                  ) : (
-                    <PauseIcon fontSize="small" />
-                  )}
-                  <Typography variant="body2">Auto Refresh</Typography>
-                </Stack>
-              }
-            />
 
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={
-                showLoading ? (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={
+                    showLoading ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <RefreshIcon />
+                    )
+                  }
+                  onClick={handleRefresh}
+                  disabled={showLoading}
+                >
+                  Refresh Now
+                </Button>
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={showPath}
+                      onChange={() => setShowPath(!showPath)}
+                      color="primary"
+                    />
+                  }
+                  label="Show Path"
+                />
+              </>
+            )}
+
+            {isMobile && (
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleRefresh}
+                disabled={showLoading}
+              >
+                {showLoading ? (
                   <CircularProgress size={16} color="inherit" />
                 ) : (
-                  <RefreshIcon />
-                )
-              }
-              onClick={handleRefresh}
-              disabled={showLoading}
-            >
-              Refresh Now
-            </Button>
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={showPath}
-                  onChange={() => setShowPath(!showPath)}
-                  color="primary"
-                />
-              }
-              label="Show Path"
-            />
+                  "Refresh"
+                )}
+              </Button>
+            )}
 
             <Chip
               label={`${sortedData.length} Points`}
@@ -1127,14 +1059,12 @@ const TrackingMap = ({
           </Stack>
         </Box>
 
-        {/* Error Display */}
         {error && (
           <Alert severity="error" sx={{ m: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
-        {/* Loading State - Show loader when data is being fetched */}
         {showLoading && !hasData && (
           <Box
             sx={{
@@ -1158,7 +1088,6 @@ const TrackingMap = ({
           </Box>
         )}
 
-        {/* No Data State - Only show when loading is complete and there's no data */}
         {!showLoading && !hasData && (
           <Box
             sx={{
@@ -1174,7 +1103,6 @@ const TrackingMap = ({
           </Box>
         )}
 
-        {/* Main Content - Show when either history data or current info is available */}
         {hasData && (
           <Box
             sx={{
@@ -1184,7 +1112,7 @@ const TrackingMap = ({
               position: "relative",
             }}
           >
-            {/* Floating Container Details Panel */}
+            {/* Floating Container Details Panel (First Code UI) */}
             {containerData && (
               <Paper
                 elevation={6}
@@ -1192,19 +1120,21 @@ const TrackingMap = ({
                   position: "absolute",
                   top: 0,
                   left: 0,
-                  width: "30rem",
+                  width: { xs: "100%", md: "30rem" },
                   height: "100%",
                   overflowY: "auto",
                   zIndex: 1000,
-                  borderRadius: 3,
+                  borderRadius: { xs: 0, md: 3 },
                   bgcolor: "rgba(255, 255, 255, 0.95)",
                   backdropFilter: "blur(10px)",
                   boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-                  display: "flex",
+                  display: {
+                    xs: isMobileMenuOpen ? "flex" : "none",
+                    md: "flex",
+                  },
                   flexDirection: "column",
                 }}
               >
-                {/* Sticky Header */}
                 <Box
                   sx={{
                     position: "sticky",
@@ -1229,11 +1159,17 @@ const TrackingMap = ({
                   >
                     📦 Container Details
                   </Typography>
+
+                  <Box sx={{ flexGrow: 1 }} />
+                  <IconButton
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    sx={{ display: { xs: "flex", md: "none" } }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
                 </Box>
 
-                {/* Main Content */}
                 <Box sx={{ p: 3 }}>
-                  {/* Current Device Status Card */}
                   {currentInfo ? (
                     <Card
                       variant="outlined"
@@ -1258,48 +1194,26 @@ const TrackingMap = ({
                         </Typography>
 
                         <Grid container spacing={2}>
-                          {/* Online Status */}
                           <Grid item xs={6}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               {currentInfo.FOnline === 1 ? (
                                 <WifiIcon color="success" />
                               ) : (
                                 <WifiOffIcon color="error" />
                               )}
                               <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   Online Status
                                 </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: "bold" }}
-                                >
-                                  {currentInfo.FOnline === 1
-                                    ? "Online"
-                                    : "Offline"}
+                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                  {currentInfo.FOnline === 1 ? "Online" : "Offline"}
                                 </Typography>
                               </Box>
                             </Box>
                           </Grid>
 
-                          {/* Lock Status */}
                           <Grid item xs={6}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               {currentInfo.FLockStatus === 1 ? (
                                 <LockOpenIcon color="success" />
                               ) : currentInfo.FLockStatus === 0 ? (
@@ -1308,16 +1222,10 @@ const TrackingMap = ({
                                 <LockIcon color="disabled" />
                               )}
                               <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   Lock Status
                                 </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: "bold" }}
-                                >
+                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                                   {currentInfo.FLockStatus === 1
                                     ? "Unlocked"
                                     : currentInfo.FLockStatus === 0
@@ -1328,46 +1236,24 @@ const TrackingMap = ({
                             </Box>
                           </Grid>
 
-                          {/* Battery Level */}
                           <Grid item xs={6}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <BatteryChargingFullIcon
-                                sx={{
-                                  color: getBatteryColor(currentInfo.FBattery),
-                                }}
+                                sx={{ color: getBatteryColor(currentInfo.FBattery) }}
                               />
                               <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   Battery Level
                                 </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: "bold" }}
-                                >
+                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                                   {currentInfo.FBattery}%
                                 </Typography>
                               </Box>
                             </Box>
                           </Grid>
 
-                          {/* Cell Signal */}
                           <Grid item xs={6}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <SignalCellularAltIcon
                                 sx={{
                                   color:
@@ -1379,70 +1265,38 @@ const TrackingMap = ({
                                 }}
                               />
                               <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   Cell Signal
                                 </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: "bold" }}
-                                >
+                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                                   {currentInfo.FCellSignal}
                                 </Typography>
                               </Box>
                             </Box>
                           </Grid>
 
-                          {/* GPS Time */}
                           <Grid item xs={12}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <AccessTimeIcon color="primary" />
                               <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   GPS Time (UTC)
                                 </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: "bold" }}
-                                >
+                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                                   {formatTime(currentInfo.FGPSTime)}
                                 </Typography>
                               </Box>
                             </Box>
                           </Grid>
 
-                          {/* Receive Time */}
                           <Grid item xs={12}>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                              }}
-                            >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <AccessTimeIcon color="secondary" />
                               <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   Data Receive Time (UTC)
                                 </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: "bold" }}
-                                >
+                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
                                   {formatTime(currentInfo.FRecvTime)}
                                 </Typography>
                               </Box>
@@ -1452,14 +1306,12 @@ const TrackingMap = ({
                       </CardContent>
                     </Card>
                   ) : (
-                    // Show loading state for current info if it's still loading
                     currentLoading && (
                       <Card
                         variant="outlined"
                         sx={{
                           mb: 3,
-                          background:
-                            "linear-gradient(135deg, #f5f9ff, #eef2ff)",
+                          background: "linear-gradient(135deg, #f5f9ff, #eef2ff)",
                           border: "1px solid #dbe2f0",
                         }}
                       >
@@ -1476,14 +1328,7 @@ const TrackingMap = ({
                           >
                             🔋 Current Device Status
                           </Typography>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              p: 3,
-                            }}
-                          >
+                          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
                             <Stack alignItems="center" spacing={2}>
                               <CircularProgress size={30} />
                               <Typography variant="body2">
@@ -1496,7 +1341,6 @@ const TrackingMap = ({
                     )
                   )}
 
-                  {/* Route Section */}
                   <Paper
                     variant="outlined"
                     sx={{
@@ -1538,7 +1382,6 @@ const TrackingMap = ({
                     </Typography>
                   </Paper>
 
-                  {/* Details Section */}
                   <Stack spacing={2.5}>
                     {[
                       {
@@ -1567,10 +1410,7 @@ const TrackingMap = ({
                         icon: <Lock color="primary" />,
                       },
                     ].map((item, index) => (
-                      <Box
-                        key={index}
-                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
-                      >
+                      <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <IconButton
                           size="small"
                           sx={{
@@ -1585,10 +1425,7 @@ const TrackingMap = ({
                           <Typography variant="caption" color="text.secondary">
                             {item.label}
                           </Typography>
-                          <Typography
-                            variant="body1"
-                            sx={{ fontWeight: "bold", color: "#333" }}
-                          >
+                          <Typography variant="body1" sx={{ fontWeight: "bold", color: "#333" }}>
                             {item.value || "N/A"}
                           </Typography>
                         </Box>
@@ -1625,10 +1462,7 @@ const TrackingMap = ({
                         icon: <DirectionsCar color="primary" />,
                       },
                     ].map((item, index) => (
-                      <Box
-                        key={index}
-                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
-                      >
+                      <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <IconButton
                           size="small"
                           sx={{
@@ -1643,10 +1477,7 @@ const TrackingMap = ({
                           <Typography variant="caption" color="text.secondary">
                             {item.label}
                           </Typography>
-                          <Typography
-                            variant="body1"
-                            sx={{ fontWeight: "bold", color: "#333" }}
-                          >
+                          <Typography variant="body1" sx={{ fontWeight: "bold", color: "#333" }}>
                             {item.value || "N/A"}
                           </Typography>
                         </Box>
@@ -1657,18 +1488,18 @@ const TrackingMap = ({
               </Paper>
             )}
 
-            {/* Map Container */}
+            {/* Map Container Box (First Code UI) */}
             <Box
               sx={{
                 flexGrow: 1,
                 position: "relative",
-                paddingLeft: "500px", // Width of your floating panel + some extra space
-                paddingRight: "20px", // Optional: Add some padding on the right too
+                paddingLeft: { xs: 0, md: "30rem" },
+                paddingRight: { xs: 0, md: "20px" },
               }}
             >
               {sortedData.length > 0 ? (
                 <MapContainer
-                  key={mapKeyRef.current} // Add key to force re-render when elockNo changes
+                  key={mapKeyRef.current}
                   center={[
                     sortedData[sortedData.length - 1]?.Lat || 0,
                     sortedData[sortedData.length - 1]?.Lon || 0,
@@ -1687,7 +1518,6 @@ const TrackingMap = ({
                     onBoundsSet={handleBoundsSet}
                   />
 
-                  {/* Add this component to update the map center when new data arrives */}
                   <MapCenterUpdater
                     center={[
                       sortedData[sortedData.length - 1]?.Lat || 0,
@@ -1695,22 +1525,19 @@ const TrackingMap = ({
                     ]}
                   />
 
-                  {/* Enhanced Polyline with blue color and dark blue border */}
                   {showPath && sortedData.length > 1 && (
                     <>
-                      {/* Dark blue border (slightly wider) */}
                       <Polyline
                         positions={pathPositions}
-                        color="#0D47A1" // Dark blue
-                        weight={10} // Slightly wider for the border
+                        color="#0D47A1"
+                        weight={10}
                         opacity={0.8}
                         smoothFactor={1}
                       />
-                      {/* Blue inner line */}
                       <Polyline
                         positions={pathPositions}
-                        color="#2196F3" // Blue
-                        weight={8} // Slightly narrower than the border
+                        color="#2196F3"
+                        weight={8}
                         opacity={0.9}
                         smoothFactor={1}
                       />
@@ -1718,27 +1545,20 @@ const TrackingMap = ({
                   )}
 
                   {sortedData.map((point, index) => {
-                    // Determine which icon to use for the last point
                     const isLastPoint = index === sortedData.length - 1;
                     let icon;
 
                     if (isLastPoint) {
-                      // Use special icons for the last point based on journey status
                       icon = isJourneyComplete
                         ? createDestinationIcon()
                         : createTruckIcon();
                     } else {
-                      // Use numbered icons for all other points
-                      icon = createNumberIcon(
-                        index + 1,
-                        index === 0,
-                        false // We handle the last point separately above
-                      );
+                      icon = createNumberIcon(index + 1, index === 0, false);
                     }
 
                     return (
                       <Marker
-                        key={`${point.GT}-${index}`} // Use a more stable key
+                        key={`${point.GT}-${index}`}
                         position={[point.Lat, point.Lon]}
                         icon={icon}
                         eventHandlers={{
@@ -1794,9 +1614,7 @@ const TrackingMap = ({
                               </Typography>
                               <Typography variant="caption">
                                 <strong>Battery:</strong>{" "}
-                                <span
-                                  style={{ color: getBatteryColor(point.Bat) }}
-                                >
+                                <span style={{ color: getBatteryColor(point.Bat) }}>
                                   {point.Bat}%
                                 </span>
                               </Typography>
@@ -1808,9 +1626,7 @@ const TrackingMap = ({
                                 <Chip
                                   label={getLocationTypeLabel(point.LType)}
                                   size="small"
-                                  color={
-                                    point.LType === 1 ? "success" : "warning"
-                                  }
+                                  color={point.LType === 1 ? "success" : "warning"}
                                   sx={{ height: 16, fontSize: "0.7rem" }}
                                 />
                               </Typography>
@@ -1828,7 +1644,6 @@ const TrackingMap = ({
                   })}
                 </MapContainer>
               ) : (
-                // Show a placeholder when there's no history data but we have current info
                 <Box
                   sx={{
                     height: "100%",
@@ -1848,20 +1663,17 @@ const TrackingMap = ({
                     </>
                   ) : (
                     <>
-                      {/* <LocationIcon sx={{ fontSize: 60, color: "text.secondary" }} /> */}
                       <Typography variant="h6" color="text.secondary">
                         No tracking history available
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Current device status is available in the panel on the
-                        left
+                        Current device status is available in the panel on the left
                       </Typography>
                     </>
                   )}
                 </Box>
               )}
 
-              {/* Map Visualization Loader - Only show for initial load */}
               {mapVisualizationLoading && isInitialLoad && (
                 <Box
                   sx={{
@@ -1891,15 +1703,22 @@ const TrackingMap = ({
               )}
             </Box>
 
-            {/* Right Panel - Selected Point Details */}
+            {/* Selected Point Details Panel (From First Code UI) */}
             {selectedPoint && (
               <Box
                 sx={{
-                  width: 320,
+                  width: { xs: "100%", md: 320 },
+                  position: { xs: "absolute", md: "static" },
+                  bottom: { xs: 0, md: "auto" },
+                  left: { xs: 0, md: "auto" },
+                  zIndex: { xs: 1100, md: 0 },
+                  maxHeight: { xs: "60vh", md: "100%" },
                   bgcolor: "background.paper",
                   borderLeft: 1,
                   borderColor: "divider",
                   overflowY: "auto",
+                  borderTop: { xs: "1px solid #ddd", md: "none" },
+                  boxShadow: { xs: "0 -4px 10px rgba(0,0,0,0.1)", md: "none" },
                 }}
               >
                 <IconButton
@@ -1907,9 +1726,11 @@ const TrackingMap = ({
                   onClick={() => setSelectedPoint(null)}
                   sx={{
                     color: "inherit",
-                    "&:hover": {
-                      bgcolor: "rgba(255,255,255,0.15)",
-                    },
+                    position: "absolute",
+                    right: 8,
+                    top: 8,
+                    "&:hover": { bgcolor: "rgba(0,0,0,0.05)" },
+                    bgcolor: "rgba(255,255,255,0.8)",
                   }}
                 >
                   <CloseIcon />
@@ -1946,8 +1767,7 @@ const TrackingMap = ({
                         variant="body2"
                         sx={{ fontWeight: "bold", fontFamily: "monospace" }}
                       >
-                        {selectedPoint.Lat.toFixed(6)},{" "}
-                        {selectedPoint.Lon.toFixed(6)}
+                        {selectedPoint.Lat.toFixed(6)}, {selectedPoint.Lon.toFixed(6)}
                       </Typography>
                     </Box>
 
@@ -2011,9 +1831,7 @@ const TrackingMap = ({
                       <Chip
                         label={getLocationTypeLabel(selectedPoint.LType)}
                         size="small"
-                        color={
-                          selectedPoint.LType === 1 ? "success" : "warning"
-                        }
+                        color={selectedPoint.LType === 1 ? "success" : "warning"}
                       />
                     </Box>
 
@@ -2082,7 +1900,6 @@ const TrackingMap = ({
         )}
       </DialogContent>
 
-      {/* Custom Styles */}
       <style jsx global>{`
         .custom-number-marker {
           color: white;
