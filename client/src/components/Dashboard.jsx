@@ -11,6 +11,10 @@ import {
   PhoneOff,
   ChevronDown,
   ArrowLeft,
+  Image as ImageIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { apiService, api } from "../services/api";
 import TrackingMap from "./TrackingMap.jsx"; // Import TrackingMap instead of ElockGPSOperation
@@ -43,6 +47,9 @@ const Dashboard = () => {
   const [selectedElockNo, setSelectedElockNo] = useState(null);
   const [selectedContainerData, setSelectedContainerData] = useState(null);
   const [activeTab, setActiveTab] = useState("assignments");
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedAssignmentImages, setSelectedAssignmentImages] = useState([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     fetchUserData();
@@ -285,6 +292,31 @@ const Dashboard = () => {
       }));
       showToast("Failed to update client call setting", "error");
     }
+  };
+
+  const handleViewImages = (assignment) => {
+    if (
+      assignment.uploadedImageUrls &&
+      assignment.uploadedImageUrls.length > 0
+    ) {
+      setSelectedAssignmentImages(assignment.uploadedImageUrls);
+      setCurrentImageIndex(0);
+      setShowImageModal(true);
+    } else {
+      showToast("No images available for this assignment", "info");
+    }
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) =>
+      prev === selectedAssignmentImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) =>
+      prev === 0 ? selectedAssignmentImages.length - 1 : prev - 1
+    );
   };
 
   const showToast = (message, type = "info") => {
@@ -743,6 +775,22 @@ const Dashboard = () => {
                               <MapPin className="h-3 w-3 mr-1" />
                               Track
                             </button>
+                            <button
+                              onClick={() => handleViewImages(assignment)}
+                              disabled={
+                                !assignment.uploadedImageUrls ||
+                                assignment.uploadedImageUrls.length === 0
+                              }
+                              className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
+                                !assignment.uploadedImageUrls ||
+                                assignment.uploadedImageUrls.length === 0
+                                  ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
+                                  : "border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100"
+                              }`}
+                            >
+                              <ImageIcon className="h-3 w-3 mr-1" />
+                              Images
+                            </button>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -897,6 +945,111 @@ const Dashboard = () => {
           containerData={selectedContainerData}
           source="containers"
         />
+      )}
+
+      {/* Image Preview Modal */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Uploaded Images ({currentImageIndex + 1} /{" "}
+                {selectedAssignmentImages.length})
+              </h2>
+              <button
+                onClick={() => {
+                  setShowImageModal(false);
+                  setSelectedAssignmentImages([]);
+                }}
+                className="text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 flex-1 flex items-center justify-center bg-gray-100 relative min-h-[400px]">
+              {selectedAssignmentImages.length > 0 ? (
+                <>
+                  {/* Left Button */}
+                  {selectedAssignmentImages.length > 1 && (
+                    <button
+                      onClick={handlePrevImage}
+                      className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all z-10"
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </button>
+                  )}
+
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={selectedAssignmentImages[currentImageIndex]}
+                      alt={`Upload ${currentImageIndex + 1}`}
+                      className="max-w-full max-h-[60vh] object-contain rounded-md shadow-sm"
+                      onError={(e) => {
+                        e.target.src =
+                          "https://via.placeholder.com/400x300?text=Image+Load+Error";
+                      }}
+                    />
+                  </div>
+
+                  {/* Right Button */}
+                  {selectedAssignmentImages.length > 1 && (
+                    <button
+                      onClick={handleNextImage}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg transition-all z-10"
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </button>
+                  )}
+
+                  {/* Image Indicators */}
+                  {selectedAssignmentImages.length > 1 && (
+                    <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-2">
+                      {selectedAssignmentImages.map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`w-2 h-2 rounded-full transition-colors ${
+                            idx === currentImageIndex
+                              ? "bg-blue-600"
+                              : "bg-gray-300"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* View Full Link */}
+                  <a
+                    href={selectedAssignmentImages[currentImageIndex]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute bottom-4 right-4 bg-white/90 px-3 py-1 text-xs font-semibold rounded shadow hover:bg-white transition-colors"
+                  >
+                    View Full Size
+                  </a>
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No images available to display.
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-gray-50 text-right">
+              <button
+                onClick={() => {
+                  setShowImageModal(false);
+                  setSelectedAssignmentImages([]);
+                }}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast Notifications */}
