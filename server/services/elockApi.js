@@ -156,9 +156,10 @@ class ElockApiService {
       );
 
       // Build query parameters for third-party API
+      // IMPORTANT: Fetch ALL records first, then filter and paginate locally
       const params = {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: 1,
+        limit: 10000, // Fetch all records
       };
 
       // Add optional parameters only if provided
@@ -168,7 +169,7 @@ class ElockApiService {
       // Note: We don't send ieCodeNo to third-party API as we'll filter locally
       // This allows us to handle multiple IE codes properly
 
-      console.log("📡 Backend: Calling third-party API with params:", params);
+      console.log("📡 Backend: Calling third-party API to fetch all records");
 
       const response = await axios.get(
         `${this.thirdPartyBaseURL}/client-elock-assign`,
@@ -183,18 +184,32 @@ class ElockApiService {
       );
 
       console.log("✅ Backend: Third-party API response received");
+      console.log(
+        `📊 Backend: Total jobs from API: ${response.data?.jobs?.length || 0}`
+      );
 
       let jobs = response.data?.jobs || [];
 
       // Apply IE code filtering if provided
       if (ieCodeNo) {
-        console.log(`🔍 Backend: Filtering by IE Code: ${ieCodeNo}`);
+        console.log(
+          `🔍 Backend: Filtering by IE Code: ${ieCodeNo}${
+            filterType ? ` (filterType: ${filterType})` : ""
+          }`
+        );
         jobs = jobs.filter((item) => {
-          // Check both consignor and consignee IE codes
           const consignorIeCode = item.consignor?.ieCodeNo;
           const consigneeIeCode = item.consignee?.ieCodeNo;
 
-          return consignorIeCode === ieCodeNo || consigneeIeCode === ieCodeNo;
+          // If filterType is specified, only check that specific party
+          if (filterType === "consignor") {
+            return consignorIeCode === ieCodeNo;
+          } else if (filterType === "consignee") {
+            return consigneeIeCode === ieCodeNo;
+          } else {
+            // If no filterType, check both consignor and consignee
+            return consignorIeCode === ieCodeNo || consigneeIeCode === ieCodeNo;
+          }
         });
         console.log(
           `✅ Backend: After IE code filtering: ${jobs.length} assignments`
@@ -227,7 +242,7 @@ class ElockApiService {
       }
 
       // Transform the filtered data for response
-      const transformedData = filteredJobs.map((item) => ({
+      const allTransformedData = filteredJobs.map((item) => ({
         _id: item._id,
         tr_no: item.tr_no,
         container_number: item.container_number,
@@ -322,18 +337,27 @@ class ElockApiService {
         }, {}),
       }));
 
-      const totalFilteredCount = transformedData.length;
+      const totalFilteredCount = allTransformedData.length;
+
+      // Apply manual pagination
+      const startIndex = (parseInt(page) - 1) * parseInt(limit);
+      const endIndex = startIndex + parseInt(limit);
+      const paginatedData = allTransformedData.slice(startIndex, endIndex);
+
+      console.log(
+        `📄 Backend: Returning page ${page} with ${paginatedData.length} records out of ${totalFilteredCount} total`
+      );
 
       const result = {
         success: true,
-        data: transformedData,
+        data: paginatedData,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
           totalCount: totalFilteredCount,
-          totalPages: Math.ceil(totalFilteredCount / limit),
+          totalPages: Math.ceil(totalFilteredCount / parseInt(limit)),
           currentPage: parseInt(page),
-          hasNextPage: parseInt(page) * limit < totalFilteredCount,
+          hasNextPage: parseInt(page) * parseInt(limit) < totalFilteredCount,
           hasPreviousPage: parseInt(page) > 1,
         },
         filters: {
@@ -344,13 +368,13 @@ class ElockApiService {
         },
         summary: {
           totalAssignments: totalFilteredCount,
-          assignedCount: transformedData.filter(
+          assignedCount: allTransformedData.filter(
             (item) => item.elock_assign_status === "ASSIGNED"
           ).length,
-          unassignedCount: transformedData.filter(
+          unassignedCount: allTransformedData.filter(
             (item) => item.elock_assign_status === "UNASSIGNED"
           ).length,
-          returnedCount: transformedData.filter(
+          returnedCount: allTransformedData.filter(
             (item) => item.elock_assign_status === "RETURNED"
           ).length,
         },

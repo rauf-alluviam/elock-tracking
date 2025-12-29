@@ -384,9 +384,18 @@ const TrackingMap = ({
         const startTime = assignmentStartTime;
         const endTime = assignmentEndTime || new Date();
 
-        console.log(
-          `🔄 Fetching history for GUID: ${guid}, Time range: ${startTime.toISOString()} to ${endTime.toISOString()}`
-        );
+        // Check if startTime is null before proceeding
+        if (!startTime) {
+          console.warn(
+            "⚠️ Assignment start time is not available yet. Skipping history fetch."
+          );
+          setHistoryLoading(false);
+          return;
+        }
+
+        // console.log(
+        //   `🔄 Fetching history for GUID: ${guid}, Time range: ${startTime.toISOString()} to ${endTime.toISOString()}`
+        // );
 
         const response = await fetch(LBS_API_URL, {
           method: "POST",
@@ -674,9 +683,10 @@ const TrackingMap = ({
       try {
         const apiUrl =
           source === "containers"
-            ? `${process.env.REACT_APP_SERVER_URL}/api/elock-status-history/${containerId}`
-            : `${process.env.REACT_APP_SERVER_URL}/api/elock-status-history-others/${containerId}`;
+            ? `http://3.108.244.38:9005/api/elock-status-history/${containerId}`
+            : `http://3.108.244.38:9005/api/elock-status-history-others/${containerId}`;
 
+        console.log(apiUrl);
         const response = await axios.get(apiUrl);
         const history = response.data.data.history;
         setAssignHistory(history);
@@ -1195,25 +1205,45 @@ const TrackingMap = ({
 
                         <Grid container spacing={2}>
                           <Grid item xs={6}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               {currentInfo.FOnline === 1 ? (
                                 <WifiIcon color="success" />
                               ) : (
                                 <WifiOffIcon color="error" />
                               )}
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Online Status
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
-                                  {currentInfo.FOnline === 1 ? "Online" : "Offline"}
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: "bold" }}
+                                >
+                                  {currentInfo.FOnline === 1
+                                    ? "Online"
+                                    : "Offline"}
                                 </Typography>
                               </Box>
                             </Box>
                           </Grid>
 
                           <Grid item xs={6}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               {currentInfo.FLockStatus === 1 ? (
                                 <LockOpenIcon color="success" />
                               ) : currentInfo.FLockStatus === 0 ? (
@@ -1222,10 +1252,16 @@ const TrackingMap = ({
                                 <LockIcon color="disabled" />
                               )}
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Lock Status
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: "bold" }}
+                                >
                                   {currentInfo.FLockStatus === 1
                                     ? "Unlocked"
                                     : currentInfo.FLockStatus === 0
@@ -1237,15 +1273,29 @@ const TrackingMap = ({
                           </Grid>
 
                           <Grid item xs={6}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               <BatteryChargingFullIcon
-                                sx={{ color: getBatteryColor(currentInfo.FBattery) }}
+                                sx={{
+                                  color: getBatteryColor(currentInfo.FBattery),
+                                }}
                               />
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Battery Level
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: "bold" }}
+                                >
                                   {currentInfo.FBattery}%
                                 </Typography>
                               </Box>
@@ -1253,7 +1303,13 @@ const TrackingMap = ({
                           </Grid>
 
                           <Grid item xs={6}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               <SignalCellularAltIcon
                                 sx={{
                                   color:
@@ -1265,10 +1321,16 @@ const TrackingMap = ({
                                 }}
                               />
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Cell Signal
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: "bold" }}
+                                >
                                   {currentInfo.FCellSignal}
                                 </Typography>
                               </Box>
@@ -1276,13 +1338,25 @@ const TrackingMap = ({
                           </Grid>
 
                           <Grid item xs={12}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               <AccessTimeIcon color="primary" />
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   GPS Time (UTC)
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: "bold" }}
+                                >
                                   {formatTime(currentInfo.FGPSTime)}
                                 </Typography>
                               </Box>
@@ -1290,13 +1364,25 @@ const TrackingMap = ({
                           </Grid>
 
                           <Grid item xs={12}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
                               <AccessTimeIcon color="secondary" />
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Data Receive Time (UTC)
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: "bold" }}
+                                >
                                   {formatTime(currentInfo.FRecvTime)}
                                 </Typography>
                               </Box>
@@ -1311,7 +1397,8 @@ const TrackingMap = ({
                         variant="outlined"
                         sx={{
                           mb: 3,
-                          background: "linear-gradient(135deg, #f5f9ff, #eef2ff)",
+                          background:
+                            "linear-gradient(135deg, #f5f9ff, #eef2ff)",
                           border: "1px solid #dbe2f0",
                         }}
                       >
@@ -1328,7 +1415,13 @@ const TrackingMap = ({
                           >
                             🔋 Current Device Status
                           </Typography>
-                          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "center",
+                              p: 3,
+                            }}
+                          >
                             <Stack alignItems="center" spacing={2}>
                               <CircularProgress size={30} />
                               <Typography variant="body2">
@@ -1410,7 +1503,10 @@ const TrackingMap = ({
                         icon: <Lock color="primary" />,
                       },
                     ].map((item, index) => (
-                      <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Box
+                        key={index}
+                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
+                      >
                         <IconButton
                           size="small"
                           sx={{
@@ -1425,7 +1521,10 @@ const TrackingMap = ({
                           <Typography variant="caption" color="text.secondary">
                             {item.label}
                           </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: "bold", color: "#333" }}>
+                          <Typography
+                            variant="body1"
+                            sx={{ fontWeight: "bold", color: "#333" }}
+                          >
                             {item.value || "N/A"}
                           </Typography>
                         </Box>
@@ -1462,7 +1561,10 @@ const TrackingMap = ({
                         icon: <DirectionsCar color="primary" />,
                       },
                     ].map((item, index) => (
-                      <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Box
+                        key={index}
+                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
+                      >
                         <IconButton
                           size="small"
                           sx={{
@@ -1477,7 +1579,10 @@ const TrackingMap = ({
                           <Typography variant="caption" color="text.secondary">
                             {item.label}
                           </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: "bold", color: "#333" }}>
+                          <Typography
+                            variant="body1"
+                            sx={{ fontWeight: "bold", color: "#333" }}
+                          >
                             {item.value || "N/A"}
                           </Typography>
                         </Box>
@@ -1614,7 +1719,9 @@ const TrackingMap = ({
                               </Typography>
                               <Typography variant="caption">
                                 <strong>Battery:</strong>{" "}
-                                <span style={{ color: getBatteryColor(point.Bat) }}>
+                                <span
+                                  style={{ color: getBatteryColor(point.Bat) }}
+                                >
                                   {point.Bat}%
                                 </span>
                               </Typography>
@@ -1626,7 +1733,9 @@ const TrackingMap = ({
                                 <Chip
                                   label={getLocationTypeLabel(point.LType)}
                                   size="small"
-                                  color={point.LType === 1 ? "success" : "warning"}
+                                  color={
+                                    point.LType === 1 ? "success" : "warning"
+                                  }
                                   sx={{ height: 16, fontSize: "0.7rem" }}
                                 />
                               </Typography>
@@ -1667,7 +1776,8 @@ const TrackingMap = ({
                         No tracking history available
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Current device status is available in the panel on the left
+                        Current device status is available in the panel on the
+                        left
                       </Typography>
                     </>
                   )}
@@ -1767,7 +1877,8 @@ const TrackingMap = ({
                         variant="body2"
                         sx={{ fontWeight: "bold", fontFamily: "monospace" }}
                       >
-                        {selectedPoint.Lat.toFixed(6)}, {selectedPoint.Lon.toFixed(6)}
+                        {selectedPoint.Lat.toFixed(6)},{" "}
+                        {selectedPoint.Lon.toFixed(6)}
                       </Typography>
                     </Box>
 
@@ -1831,7 +1942,9 @@ const TrackingMap = ({
                       <Chip
                         label={getLocationTypeLabel(selectedPoint.LType)}
                         size="small"
-                        color={selectedPoint.LType === 1 ? "success" : "warning"}
+                        color={
+                          selectedPoint.LType === 1 ? "success" : "warning"
+                        }
                       />
                     </Box>
 
