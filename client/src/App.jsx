@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import Dashboard from './components/Dashboard';
-import { apiService } from './services/api';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import ElockGPSOperationPage from './pages/ElockGPSOperationPage';
+import React, { useEffect, useState } from "react";
+import Dashboard from "./components/Dashboard";
+import { apiService } from "./services/api";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ElockGPSOperationPage from "./pages/ElockGPSOperationPage";
+import { getAuthToken, clearAuthTokens } from "./utils/cookies";
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -14,58 +15,56 @@ function App() {
     const processSsoAuthentication = async () => {
       try {
         setIsLoading(true);
-      
-        
-        // Check if we have a token in the URL
+
+        // Check if we have a token in the URL (SSO redirect)
         const urlToken = apiService.getTokenFromUrl();
-       
-        
+        console.log(
+          "🔍 Auth Check: URL token:",
+          urlToken ? "Found" : "Not found"
+        );
+
         if (urlToken) {
-       
-          // Save the URL token immediately
+          console.log("📥 Saving URL token to cookies and storage...");
+          // Save the URL token immediately to cookies and localStorage
           apiService.saveToken(urlToken, true);
         } else {
-         
-          
-          // Check for existing stored tokens
-          const storedToken = localStorage.getItem('exim_sso_token') || 
-                             localStorage.getItem('jwt_token') || 
-                             sessionStorage.getItem('jwt_token');
-          
-          if (!storedToken) {
-          
-            throw new Error('No authentication token found');
-          }
-          
+          // Check for existing stored tokens (cookies first, then localStorage)
+          const storedToken = getAuthToken();
+          console.log(
+            "📦 Auth Check: Stored token:",
+            storedToken ? "Found" : "Not found"
+          );
 
+          if (!storedToken) {
+            console.log("❌ No token found in URL, cookies, or localStorage");
+            throw new Error("No authentication token found");
+          }
+
+          console.log("✅ Using existing stored token");
         }
-        
+
         // Process the SSO token (verify with server)
         const result = await apiService.processSsoToken(false); // Don't auto-redirect
-        
+
         if (result.success) {
+          console.log("✅ Authentication successful");
           setIsAuthenticated(true);
           setAuthError(null);
         } else {
-          console.error('❌ Authentication failed:', result.error);
-          setAuthError(result.error || 'Authentication failed');
+          console.error("❌ Authentication failed:", result.error);
+          setAuthError(result.error || "Authentication failed");
           setIsAuthenticated(false);
-          
-          // Clear any invalid tokens
-          localStorage.removeItem('exim_sso_token');
-          localStorage.removeItem('jwt_token');
-          sessionStorage.removeItem('jwt_token');
+
+          // Clear any invalid tokens from cookies and storage
+          clearAuthTokens();
         }
-        
       } catch (error) {
-        console.error('❌ SSO Authentication error:', error);
-        setAuthError(error.message || 'Authentication failed');
+        console.error("❌ SSO Authentication error:", error);
+        setAuthError(error.message || "Authentication failed");
         setIsAuthenticated(false);
-        
-        // Clear any invalid tokens
-        localStorage.removeItem('exim_sso_token');
-        localStorage.removeItem('jwt_token');
-        sessionStorage.removeItem('jwt_token');
+
+        // Clear any invalid tokens from cookies and storage
+        clearAuthTokens();
       } finally {
         setIsLoading(false);
       }
@@ -76,7 +75,8 @@ function App() {
 
   // Handle manual login redirect
   const handleLoginRedirect = () => {
-    window.location.href = 'http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login';
+    window.location.href =
+      "http://client.exim.alvision.in.s3-website.ap-south-1.amazonaws.com/login";
   };
 
   // Loading state
@@ -90,7 +90,9 @@ function App() {
           <h2 className="text-xl font-medium text-gray-700 mb-2">
             Verifying Authentication
           </h2>
-          <p className="text-gray-500">Please wait while we verify your credentials...</p>
+          <p className="text-gray-500">
+            Please wait while we verify your credentials...
+          </p>
         </div>
       </div>
     );
@@ -109,7 +111,8 @@ function App() {
               Authentication Required
             </h2>
             <p className="text-gray-500 mb-4">
-              {authError || 'Please log in to access the E-Lock Tracking System'}
+              {authError ||
+                "Please log in to access the E-Lock Tracking System"}
             </p>
             <button
               onClick={handleLoginRedirect}
@@ -125,12 +128,10 @@ function App() {
 
   // Successfully authenticated - render Dashboard with routing
   return (
-  
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/elock/:elockNo" element={<ElockGPSOperationPage />} />
-      </Routes>
-  
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/elock/:elockNo" element={<ElockGPSOperationPage />} />
+    </Routes>
   );
 }
 

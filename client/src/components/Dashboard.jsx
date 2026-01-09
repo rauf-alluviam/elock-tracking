@@ -77,17 +77,15 @@ const Dashboard = () => {
         ? filterType.charAt(0).toUpperCase() + filterType.slice(1).toLowerCase()
         : "";
 
-      console.log(
-        `[DEBUG] fetchLimits triggered for ieCode: "${selectedIeCode}", type: "${typeStr}"`
-      );
+      // console.log(
+      //   `[DEBUG] fetchLimits triggered for ieCode: "${selectedIeCode}", type: "${typeStr}"`
+      // );
 
       setLimitsLoading(true);
       const response = await apiService.getElockAssignLimits(
         selectedIeCode || userData?.ieCodeNo || "",
         typeStr
       );
-
-      console.log("[DEBUG] fetchLimits response:", response);
 
       const data = response?.data || response;
 
@@ -113,12 +111,6 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    console.log(
-      "[DEBUG] Effect check - selectedIeCode:",
-      selectedIeCode,
-      "filterType:",
-      filterType
-    );
     if (selectedIeCode) {
       fetchLimits();
     }
@@ -199,11 +191,11 @@ const Dashboard = () => {
       const response = await apiService.getElockAssignments(params);
 
       if (response.success) {
-        console.log(
-          "✅ Assignments fetched:",
-          response.data.length,
-          "containers"
-        );
+        // console.log(
+        //   "✅ Assignments fetched:",
+        //   response.data.length,
+        //   "containers"
+        // );
 
         setAssignments(response.data);
         setTotalCount(response.pagination?.totalCount || response.data.length);
@@ -486,7 +478,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {console.log("[DEBUG] Render Dashboard - limits:", limits)}
+      {/* {console.log("[DEBUG] Render Dashboard - limits:", limits)} */}
       {/* Header */}
       <div className="flex justify-between items-center py-6">
         <div className="flex flex-col items-start ml-10">

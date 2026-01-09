@@ -656,7 +656,7 @@ export const emitToAll = (event, data) => {
 
 // MQTT Integration - Emit position updates to ELock tracking room
 export const emitPositionUpdate = (deviceId, positionData) => {
-  console.log(`🔔 [DEBUG] emitPositionUpdate called for device: ${deviceId}`);
+ // console.log(`🔔 [DEBUG] emitPositionUpdate called for device: ${deviceId}`);
 
   // **ENHANCED DEBUG** - Check if this is device 8294630164
   if (deviceId === "8294630164") {
@@ -771,7 +771,7 @@ export const emitAlarm = (deviceId, alarmData) => {
 
 // MQTT Integration - Emit status update
 export const emitStatusUpdate = (deviceId, statusData) => {
-  console.log(`🔔 [DEBUG] emitStatusUpdate called for device: ${deviceId}`);
+  //console.log(`🔔 [DEBUG] emitStatusUpdate called for device: ${deviceId}`);
 
   // **ENHANCED DEBUG** - Check if this is device 8294630164
   if (deviceId === "8294630164") {

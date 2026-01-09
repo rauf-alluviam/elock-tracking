@@ -1,24 +1,23 @@
 import axios from "axios";
+import { getAuthToken, saveAuthToken, clearAuthTokens } from "../utils/cookies";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://15.207.11.214:5004/api";
 
-// Create axios instance
+// Create axios instance with credentials to send/receive cookies
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // 30 second timeout
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Important: Send cookies with cross-origin requests
 });
 
 // Add token to every request if available
 api.interceptors.request.use((config) => {
-  // Get token from localStorage or sessionStorage
-  const token =
-    localStorage.getItem("exim_sso_token") ||
-    localStorage.getItem("jwt_token") ||
-    sessionStorage.getItem("jwt_token");
+  // Get token from cookies first, then fall back to storage
+  const token = getAuthToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -32,10 +31,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem("exim_sso_token");
-      localStorage.removeItem("jwt_token");
-      sessionStorage.removeItem("jwt_token");
+      // Token expired or invalid - clear all tokens
+      clearAuthTokens();
 
       // Redirect to login
       window.location.href =
@@ -54,18 +51,13 @@ export const apiService = {
     return token ? token.trim() : null;
   },
 
-  saveToken: (token, persist = false) => {
+  saveToken: (token, persist = true) => {
     if (!token) return false;
 
     const cleanToken = token.trim();
 
-    // Save with both keys for compatibility
-    localStorage.setItem("exim_sso_token", cleanToken);
-    localStorage.setItem("jwt_token", cleanToken);
-
-    if (!persist) {
-      sessionStorage.setItem("jwt_token", cleanToken);
-    }
+    // Use cookie utility to save token (cookies + localStorage for redundancy)
+    saveAuthToken(cleanToken, persist);
 
     // Remove token from URL to prevent leaking in browser history
     const url = new URL(window.location);
@@ -101,14 +93,11 @@ export const apiService = {
 
       if (!tokenToProcess) {
         console.log(
-          "⚠️ processSsoToken: No URL token, checking stored tokens..."
+          "⚠️ processSsoToken: No URL token, checking stored tokens (cookies + localStorage)..."
         );
 
-        // Check for stored tokens
-        const storedToken =
-          localStorage.getItem("exim_sso_token") ||
-          localStorage.getItem("jwt_token") ||
-          sessionStorage.getItem("jwt_token");
+        // Check for stored tokens using cookie utility (checks cookies first, then localStorage)
+        const storedToken = getAuthToken();
 
         console.log(
           "📦 processSsoToken: Stored token found:",
@@ -116,7 +105,9 @@ export const apiService = {
         );
 
         if (!storedToken) {
-          throw new Error("No authentication token found in URL or storage");
+          throw new Error(
+            "No authentication token found in URL, cookies, or storage"
+          );
         }
 
         tokenToProcess = storedToken;
@@ -223,7 +214,7 @@ export const apiService = {
         ...(ieCodeNo && { ieCodeNo }),
       };
 
-      console.log("🔍 Fetching assignments with params:", params);
+
 
       const response = await api.get("/elock/assignments", { params });
 
