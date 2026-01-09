@@ -381,6 +381,20 @@ export const apiService = {
       return { success: false, error: error.message };
     }
   },
+
+  // Get elock assignment limits
+  getElockAssignLimits: async (ieCodeNo, type) => {
+    try {
+      // Use our backend proxy instead of direct third-party call
+      const response = await api.get("/elock/assign-limits", {
+        params: { ieCodeNo, type },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching limits via proxy:", error);
+      return { success: false, error: error.message };
+    }
+  },
 };
 
 export { api };

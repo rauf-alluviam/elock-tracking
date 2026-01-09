@@ -50,12 +50,13 @@ const Dashboard = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedAssignmentImages, setSelectedAssignmentImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [limits, setLimits] = useState(null);
+  const [limitsLoading, setLimitsLoading] = useState(false);
 
   useEffect(() => {
     fetchUserData();
     checkServiceStatus();
   }, []);
-
   useEffect(() => {
     if (userData) {
       fetchAssignments();
@@ -69,6 +70,59 @@ const Dashboard = () => {
     itemsPerPage,
     selectedIeCode,
   ]);
+
+  const fetchLimits = async () => {
+    try {
+      const typeStr = filterType
+        ? filterType.charAt(0).toUpperCase() + filterType.slice(1).toLowerCase()
+        : "";
+
+      console.log(
+        `[DEBUG] fetchLimits triggered for ieCode: "${selectedIeCode}", type: "${typeStr}"`
+      );
+
+      setLimitsLoading(true);
+      const response = await apiService.getElockAssignLimits(
+        selectedIeCode || userData?.ieCodeNo || "",
+        typeStr
+      );
+
+      console.log("[DEBUG] fetchLimits response:", response);
+
+      const data = response?.data || response;
+
+      if (Array.isArray(data) && data.length > 0) {
+        setLimits(data[0]);
+      } else if (
+        data &&
+        typeof data === "object" &&
+        !Array.isArray(data) &&
+        Object.keys(data).length > 0
+      ) {
+        setLimits(data);
+      } else {
+        console.warn("[DEBUG] fetchLimits: No data found in response");
+        setLimits(null);
+      }
+    } catch (error) {
+      console.error("[DEBUG] fetchLimits error:", error);
+      setLimits(null);
+    } finally {
+      setLimitsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log(
+      "[DEBUG] Effect check - selectedIeCode:",
+      selectedIeCode,
+      "filterType:",
+      filterType
+    );
+    if (selectedIeCode) {
+      fetchLimits();
+    }
+  }, [selectedIeCode, filterType]);
 
   const BackButton = () => {
     return (
@@ -432,6 +486,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {console.log("[DEBUG] Render Dashboard - limits:", limits)}
       {/* Header */}
       <div className="flex justify-between items-center py-6">
         <div className="flex flex-col items-start ml-10">
@@ -481,11 +536,19 @@ const Dashboard = () => {
             onClick={() => {
               fetchAssignments();
               checkServiceStatus();
+              fetchLimits();
             }}
+            className="inline-flex items-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Data
+          </button>
+          <button
+            onClick={() => fetchLimits()}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            Sync Limits
           </button>
           <div>{import.meta.env.VERSION}</div>
         </div>
@@ -537,7 +600,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden max-w-full">
           {/* Tab Navigation */}
           <div className="max-w-7.5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="border-b border-gray-200">
+            <div className="border-b border-gray-200 flex justify-between items-center">
               <nav className="-mb-px flex space-x-8">
                 <button
                   onClick={() => setActiveTab("assignments")}
@@ -560,6 +623,48 @@ const Dashboard = () => {
                   E-Lock Management
                 </button> */}
               </nav>
+
+              {/* Compact Assignment Limits */}
+              <div className="flex items-center pr-2">
+                {limitsLoading ? (
+                  <div className="flex items-center px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 shadow-sm animate-pulse">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-500 mr-2" />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      Updating...
+                    </span>
+                  </div>
+                ) : limits ? (
+                  <div className="flex items-center space-x-4">
+                    {/* Assigned Pill */}
+                    <div className="flex items-center space-x-3 pl-4 pr-2 py-1.5 bg-green-100 rounded-full">
+                      <span className="text-sm font-bold text-green-800 uppercase tracking-wide">
+                        ASSIGNED
+                      </span>
+                      <span className="flex items-center justify-center px-2.5 py-0.5 bg-white text-green-800 text-sm font-bold rounded-full min-w-[28px] shadow-sm">
+                        {limits.assigned || 0}
+                      </span>
+                    </div>
+
+                    {/* Remaining Pill */}
+                    <div className="flex items-center space-x-3 pl-4 pr-2 py-1.5 bg-red-100 rounded-full">
+                      <span className="text-sm font-bold text-red-900 uppercase tracking-wide">
+                        REMAINING
+                      </span>
+                      <span className="flex items-center justify-center px-2.5 py-0.5 bg-white text-red-900 text-sm font-bold rounded-full min-w-[28px] shadow-sm">
+                        {limits.remaining || 0}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  filterType && (
+                    <div className="px-4 py-1.5 bg-yellow-50 rounded-lg border border-yellow-100">
+                      <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-widest">
+                        Sync Needed
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
             </div>
           </div>
 
@@ -580,64 +685,66 @@ const Dashboard = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <span>Items per page:</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(parseInt(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="border border-gray-300 rounded px-2 py-1"
-                    >
-                      <option value={20}>20</option>
-                      <option value={100}>100</option>
-                      <option value={1000}>1000</option>
-                    </select>
-                    <span>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                  </div>
-
-                  {totalPages > 1 && (
+                  <div className="flex flex-col items-end space-y-2">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      <span>Items per page:</span>
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(parseInt(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="border border-gray-300 rounded px-2 py-1 bg-white"
                       >
-                        Previous
-                      </button>
-
-                      {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                        const pageNum = Math.max(1, currentPage - 2) + index;
-                        if (pageNum <= totalPages) {
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => handlePageChange(pageNum)}
-                              className={`px-3 py-1 border rounded-md text-sm font-medium ${
-                                pageNum === currentPage
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "text-gray-700 bg-white hover:bg-gray-50"
-                              }`}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        }
-                        return null;
-                      })}
-
-                      <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
+                        <option value={20}>20</option>
+                        <option value={100}>100</option>
+                        <option value={1000}>1000</option>
+                      </select>
+                      <span>
+                        Page {currentPage} of {totalPages}
+                      </span>
                     </div>
-                  )}
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </button>
+
+                        {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                          const pageNum = Math.max(1, currentPage - 2) + index;
+                          if (pageNum <= totalPages) {
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => handlePageChange(pageNum)}
+                                className={`px-3 py-1 border rounded-md text-sm font-medium ${
+                                  pageNum === currentPage
+                                    ? "bg-blue-600 text-white border-blue-600"
+                                    : "text-gray-700 bg-white hover:bg-gray-50"
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
