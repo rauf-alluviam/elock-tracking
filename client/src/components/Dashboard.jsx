@@ -844,10 +844,14 @@ const Dashboard = () => {
                                   `unlock_${
                                     assignment.f_asset_id || assignment.elock_no
                                   }`
-                                ]
+                                ] ||
+                                assignment.elock_assign_status === "RETURNED"
                               }
                               className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                                !(assignment.f_asset_id || assignment.elock_no)
+                                !(
+                                  assignment.f_asset_id || assignment.elock_no
+                                ) ||
+                                assignment.elock_assign_status === "RETURNED"
                                   ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
                                   : "border-red-300 text-red-700 bg-red-50 hover:bg-red-100"
                               }`}
@@ -871,10 +875,16 @@ const Dashboard = () => {
                                 )
                               }
                               disabled={
-                                !(assignment.f_asset_id || assignment.elock_no)
+                                !(
+                                  assignment.f_asset_id || assignment.elock_no
+                                ) ||
+                                assignment.elock_assign_status === "RETURNED"
                               }
                               className={`inline-flex items-center justify-center px-2 py-1 border text-xs rounded-md transition-colors ${
-                                !(assignment.f_asset_id || assignment.elock_no)
+                                !(
+                                  assignment.f_asset_id || assignment.elock_no
+                                ) ||
+                                assignment.elock_assign_status === "RETURNED"
                                   ? "border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed"
                                   : "border-green-300 text-green-700 bg-green-50 hover:bg-green-100"
                               }`}
